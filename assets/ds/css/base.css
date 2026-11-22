@@ -1,0 +1,2608 @@
+/* ==========================================================================
+   Control-F — Base
+   Font loading, reset, element defaults, layout primitives, utilities.
+   Depends on tokens.css.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   FONTS
+   Self-hosted on purpose — no third-party CDN, so no IP transfer to a US
+   host on page load (DSGVO). The files sit in assets/fonts/ next to their
+   licence.
+
+     Geist + Geist Mono   OFL, vendored   github.com/vercel/geist-font
+     Publica Sans         commercial      licence required
+
+   Until Publica Sans is licensed there is no rule for it: a face whose file
+   is not on disk costs a 404 on every page and buys nothing, so the rule
+   ships the day the file does. --font-display falls back to Geist and
+   headlines render one notch less distinctive but structurally identical.
+   When the licence lands, drop PublicaSans-Variable.woff2 into assets/fonts/
+   and restore:
+
+     @font-face {
+       font-family: "Publica Sans";
+       src: url("../fonts/PublicaSans-Variable.woff2") format("woff2-variations");
+       font-weight: 100 900;
+       font-style: normal;
+       font-display: swap;
+     }
+   -------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Geist";
+  src: url("../fonts/Geist-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../fonts/GeistMono-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --------------------------------------------------------------------------
+   RESET
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+
+  /* THE ONE DECLARATION THAT KEEPS THE WASH OURS. Every colour on this site is
+     derived — --wash-stops opens at #CFCFD2 and lands on white, the ramps are
+     checked against the oklab path, thirteen contrast ratios are recomputed on
+     every run — and none of that survives a browser that decides the page is a
+     light page it is allowed to re-tint. Chrome for Android's Auto Dark Theme
+     does exactly that, to any document that has not declared a scheme, and it
+     is invisible from every desk: a desktop browser ignores the feature, so no
+     screenshot, no responsive sweep and no contrast check in scripts/ can see
+     it. `only light` is the opt-out the feature documents, and it is also the
+     truthful statement — the system has one scheme, and it is this one.
+
+     The same declaration is what tells the UA how to paint the surfaces this
+     stylesheet cannot reach: the scrollbar, the form controls the forms
+     chapter deliberately leaves native, the spellcheck underline, the canvas
+     behind the page before the first paint. Undeclared, those are drawn from
+     the reader's OS preference and the page's from ours, which is how a dark
+     scrollbar ends up beside a CF-Grau page.
+
+     `only` is the half that does the work and the half that is a promise: it
+     forecloses an automatic dark rendering, so the day this system wants a
+     night it has to draw one. → foundations/outside.html */
+  color-scheme: only light;
+
+  scroll-behavior: smooth;
+  /* WHERE A TAB PRESS PUTS THE THING IT JUST FOCUSED. The note below this rule
+     already establishes the mechanism — "Chromium scrolls a focused element
+     into view, so on a page this tall EVERY Tab to an off-screen control is one
+     of these journeys" — and measured how LONG the journey takes. It never
+     asked where it lands.
+
+     It lands against the bottom edge. The scroll is `nearest`, and a control
+     entered from above is nearest when its bottom meets the viewport's bottom.
+     That edge is where `[data-cf-consent-banner]` is fixed, and the banner is
+     144 px at 1280 and 1440, 233 at 768 and 334 at 375 — 41 % of a 375 x 812
+     screen. So every Tab to an off-screen control parked that control behind
+     the notice. Counted on patterns/landing-page.html, first visit, banner up,
+     under `reduce` so the scroll is instant and the count is exact — stops
+     whose own CENTRE returns the banner from elementFromPoint, i.e. entirely
+     hidden, which is the wording of WCAG 2.2 SC 2.4.11 (AA):
+
+       375 x 812    30 of 45 stops        768 x 1024   20 of 45
+       1280 x 800   11 of 50              1440 x 900   11 of 50
+
+     This is check-consent-clearance.py's finding one layer out. That check
+     reserves the banner in the HERO's height, because the hero hangs its call
+     to action off its own bottom edge; the same edge, for the same reason,
+     needs reserving in the SCROLL PORT, because every focused control is hung
+     off it too. Same published number, same `0px` fallback so a page with no
+     banner reserves nothing, same three links that break silently.
+
+     ON html AND NOT ON body, which is the silent one: scroll-padding acts on
+     the scroll CONTAINER, and <html> is the scrolling element on every page
+     here. Moved to body it parses, computes and does nothing at all.
+
+     scroll-padding cannot help the last screen of the document, because there
+     the page has no scroll left to give — .cf-footer pays that half in its own
+     bottom padding. After both: 0 of 45 / 45 / 50 / 50 shipping stops hidden.
+     → components.css .cf-footer; scripts/check-scroll-reserve.py */
+  scroll-padding-bottom: var(--cf-consent-height, 0px);
+}
+/* AND THE ONE MOTION ON THIS SITE THAT DID NOT ASK. Every animation in the
+   three stylesheets is gated on `prefers-reduced-motion: no-preference` —
+   every view timeline, every transition, every keyframe — and this one
+   declaration, four lines above, was outside all of it. It is also the
+   longest movement the site can produce: a smooth scroll to the team strip on
+   the landing page travels 6030 px, measured, and the reader who asked for
+   less motion got every pixel of it.
+   It fires far more often than the anchors it was written for. Chromium
+   scrolls a focused element into view, so on a page this tall EVERY Tab to an
+   off-screen control is one of these journeys — reading the focused element
+   45 ms after each Tab, 34 of the landing page's 47 stops were still in flight,
+   and 0 of 46 are once this block applies — and the skip link is another. Which makes the
+   readers who take the most of this motion the ones navigating by keyboard,
+   including anyone doing so because pointing is hard: the population the
+   preference exists to serve, taking the dose nobody else does.
+   `auto` is the initial value, so this restores the browser default rather
+   than inventing a behaviour: the page arrives, instantly, at the place it
+   was asked for. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* AND THE SECTION THAT IS ALREADY DARK SAYS SO. tokens.css has carried an
+   inverse theme since the footer was drawn — Schwarz surface, light ink, light
+   contours, the lattice inverted — and it flipped every value this system
+   declares and none of the ones the UA declares. A native control inside an
+   inverted section was drawn from the reader's OS preference, on black, and a
+   light-mode reader got a white select on a black plate with the page's own
+   focus ring around it.
+   `dark` and not `only dark`: the root above already forecloses the automatic
+   rendering for the whole document, and repeating `only` here would say this
+   subtree is defending itself from something that cannot reach it.
+   → tokens.css, "Dark context"; foundations/outside.html */
+[data-theme="inverse"] { color-scheme: dark; }
+
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: var(--weight-light);
+  line-height: var(--leading-relaxed);
+  color: var(--text-primary);
+  background: var(--surface-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd { margin: 0; }
+
+/* THE PAGE COPY IS GERMAN, AND GERMAN BUILDS COMPOUNDS. "Technologie-Kompetenz"
+   and "Datenfundament" are one word each as far as line breaking is concerned,
+   and a word that does not fit does not wrap — it hangs out of its box and takes
+   the document's scroll width with it.
+
+   At the 16 px default nothing here fires: measured across 320–2000 px on both
+   designed pages, every line already fits and the rule changes nothing. It fires
+   when the READER has enlarged their browser's default font, which is the case
+   the whole reflow requirement is about — WCAG 1.4.10 asks for no sideways
+   scrolling at 320 px of viewport, and at a 24 px default `.cf-process__title`
+   was 252 px of unbreakable word inside a 196 px panel.
+
+   `break-word` and not `anywhere`: both break a word that has no other option,
+   but `anywhere` also shrinks the element's min-content size, which would let
+   every grid track in the system collapse to one character and quietly change
+   how columns are sized at widths where nothing was wrong. This one is inert
+   until a line genuinely cannot be set, which is exactly the last resort it is
+   meant to be.
+
+   It is a NET, not typography. The right answer for German is hyphenation at the
+   dictionary's break points rather than at the box's edge — `hyphens: auto`
+   against these pages' `lang="de"` — but that is a decision about how the type
+   reads, so it belongs to the typography lane and to a designer. Until then the
+   page does not scroll sideways. → foundations/layout.html
+
+   THE LIST IS THE WHOLE NET, AND IT WAS WRITTEN BY HAND, so it was a list of
+   the elements that MEAN text rather than of the elements that HOLD it. Four
+   tags held copy on the pattern pages and were not in it, and two of them were
+   live faults on the landing page — measured at a 16 px default, with no
+   enlarged type needed, using one real compound
+   (Kraftfahrzeughaftpflichtversicherungsschutz, 42 characters) dropped into
+   copy that is already on the page:
+
+     summary   the six FAQ questions       320 → 384 px,  375 → 384 px
+     span      .cf-section-header__count   320 → 384 px,  375 → 385 px
+
+   Both are flex or grid ITEMS, which is why they take the document with them
+   while the same word in a plain <div> merely overflows a box something else
+   crops: an item's min-content contribution widens the line or the track it
+   sits in, and that is layout rather than paint. option and caption hold copy
+   on sibling pattern pages and are in for the same reason.
+
+   NOT div, and not `body` either, and the two refusals are one decision. This
+   property inherits, so either selector would cover every leaf in the tree in
+   a single word — and a net that cannot be caught short also cannot be
+   checked, so the completeness this list finally has would stop meaning
+   anything the day after it was written. Both are wrong on their own terms as
+   well: <pre> and .docs-code are horizontal scrollports ON PURPOSE, and a net
+   that reaches them turns a code sample that scrolls into one that wraps. So
+   the net stays a list of the elements that hold their own copy; a <div> that
+   holds copy is a component and covers itself where it is declared —
+   .cf-accordion__content is the only one in the tree — and the completeness of
+   this list is checked against the markup rather than kept by hand, by
+   scripts/check-wrap-net.py, which reads the list out of this file. */
+h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, figcaption, td, th, a, button,
+label, summary, span, option, caption {
+  overflow-wrap: break-word;
+}
+ul[role="list"], ol[role="list"] { list-style: none; margin: 0; padding: 0; }
+img, svg, video { display: block; max-width: 100%; }
+img, video { height: auto; }
+input, button, textarea, select { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+
+a { color: inherit; text-decoration: none; }
+a:not([class]) {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+/* THIS LIST WAS WRITTEN BY HAND TOO, and it was caught short in exactly the
+   way the overflow-wrap net above it was, by exactly the same element. It is
+   the system's ONE focus indicator — every ring on every page is this
+   declaration — and it names five tags plus [tabindex], which is a list of the
+   things a person thinks of as controls rather than of the things the browser
+   gives focus to. <summary> is natively focusable, is none of those five, and
+   carries no tabindex, so it has never once received this ring: 21 of them in
+   six files, including the landing page's six FAQ rows.
+
+   WHAT THE READER GOT INSTEAD was the user agent's own outline, and the
+   component's sheen is not a second opinion about that. Measured on the
+   landing page's first FAQ row at 1440 x 900, unfocused against focused:
+
+     the sheen sweep alone (:focus-visible background-position)   1.23:1
+     the browser's fallback outline alone                        13.61:1
+     this ring, once summary is in the list                      14.91:1
+
+   WCAG 2.4.11 asks a focus indicator for 3:1 against its unfocused state, so
+   the 1.23 is not an indicator and the whole job was being done by a ring
+   nothing in this repository asked for, at 1 px where the system draws 2, at
+   offset 0 where the system draws 2, in the UA's near-black rather than in
+   --focus-ring — which is the token that flips to lime under
+   data-theme="inverse" and therefore the only one that survives a dark
+   surface. Nothing renders wrong on the day you look at it in Chromium; it is
+   simply not this system's ring, on the one component that discloses content.
+
+   Held by scripts/check-focus-ring.py, which reads this selector and the
+   markup rather than trusting the next hand-kept list. */
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: var(--stroke-2) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* AND THE ONE ELEMENT THE RING ABOVE MUST NOT REACH, which is why the skip
+   link's target could not simply be given the attribute that makes it work.
+
+   The skip link is the first tab stop on all fourteen pattern pages and the
+   only control on any of them that exists for one reader. Measured on the
+   landing page at 375 and 1440, over three sequences — a fresh load, a load
+   where the consent banner was dismissed by mouse first, and a reader who had
+   scrolled and clicked before reaching for it — pressing Enter on it set
+   location.hash to #inhalt and left document.activeElement on <body>. Every
+   time. <main id="inhalt"> is not a focusable element, so there was nothing
+   for the fragment to give the focus to.
+
+   IT LOOKED LIKE IT WORKED, and that is the whole of why it lasted. Chromium
+   moves the SEQUENTIAL FOCUS NAVIGATION STARTING POINT to the fragment's
+   target even when the target cannot hold focus, so the next Tab does land
+   inside <main> — verified in all six runs above. What does not move is
+   focus. A screen reader in focus mode follows document.activeElement and not
+   a starting point no API exposes, so the reader who pressed the one control
+   built for them was told nothing had happened; the starting point is also a
+   rescue rather than a guarantee, discarded by the next click, and one engine
+   implementing it is not the platform agreeing to.
+
+   THE ATTRIBUTE ALONE SHIPS A SECOND DEFECT, and it is a bigger one than the
+   first. tabindex="-1" on <main> makes the fragment move focus for real —
+   measured, document.activeElement becomes MAIN#inhalt at 375, 768, 1280 and
+   1440, on all fourteen pages that carry the link — and
+   [tabindex] is a term in the ring's list one rule up. Because the skip was
+   activated FROM THE KEYBOARD, main then matches :focus-visible: measured
+   `2px solid` around the whole of <main>, which on the landing page is a
+   rectangle 10,892 px tall at 1440. The reader who skips is handed a box
+   drawn around the entire document.
+
+   So the pair is the fix and neither half of it is optional. This rule is the
+   second half: an element whose tabindex is -1 is BY DEFINITION out of the
+   tab order, which is the definition of not being a control, and the ring
+   names controls. Nothing is taken away from a reader here — the skip's
+   feedback is the viewport moving and the next Tab drawing the ring on the
+   first real control inside main. Written as its own rule and not as a
+   :not() inside the list above, because the list above is the system's ONE
+   focus indicator and check-focus-ring.py holds it to being one — a second
+   `:where(...):focus-visible` rule in this file is that check's failure, and
+   correctly so.
+
+   NO :where() ON THIS ONE, which is the difference between a rule that wins
+   and a rule that ties. The indicator wraps its list in :where() so it carries
+   the specificity of :focus-visible alone, (0,1,0). A bare attribute selector
+   with the same pseudo-class is (0,2,0) and takes it outright — in any order,
+   under any later reshuffle of this file, and without the tie that would make
+   the fix depend on which of two lines a hand happened to move first.
+   → scripts/check-skip-target.py */
+[tabindex="-1"]:focus-visible { outline: none; }
+
+/* A BARE <strong> WAS NOT BOLD, and it took a page about marked text to notice.
+   Body copy is --weight-light, 300. The UA default for strong is `bolder`,
+   which is RELATIVE: against 300 it resolves to 400, one step on a variable
+   axis and no visible emphasis at all. Every component that thought about it
+   set its own value and was therefore fine — .cf-prose strong and .docs-note
+   strong at 600, .cf-check__label strong at 500, .cf-process__note strong —
+   and both designed pages happen to put every <strong> they have inside one of
+   those. So this was latent rather than visible, and it would have shipped the
+   first time a page emphasised a word outside a component.
+   600 is what the components that set it chose. :where() so every one of them
+   still wins. */
+:where(strong, b) { font-weight: var(--weight-semibold); }
+
+/* FLAT LIME, AND IT IS FLAT BECAUSE CSS GIVES NO OTHER OPTION: background-image
+   is ignored on a highlight pseudo-element, so no ramp of the light family can
+   be painted into one. Everywhere lime fills an AREA it fills it with a
+   gradient — foundations/colors.html, "Lime is never flat". Do not read this
+   line as a precedent; read it as the general case, which the found state below
+   states in full and measures. Every highlight register in this system is the
+   same exception, for the same reason, and there is no fourth one.
+
+   This one is also the only highlight here that is a GESTURE rather than an
+   answer, which is why it keeps the platform's convention and takes no contour:
+   a selection that reads as anything other than a selection is a selection you
+   cannot trust. Its boundary against CF-Grau is 1.37:1 and that is documented
+   rather than fixed — a drag is transient, self-caused and under the reader's
+   own hand, and the criterion the fill has to clear is the text on it, at
+   18.51:1. Everything below is the other half of the story: a mark the reader
+   did NOT make, and therefore has to be able to trust at a glance.
+   → foundations/found.html */
+/* A HIGHLIGHT DOES NOT OWN THE FILL OF THE TEXT IT IS PAINTED OVER, so it has
+   to state one. `color` is not enough: -webkit-text-fill-color is INHERITED
+   and, where it is set, it BEATS the color of every descendant. So any text
+   under a background-clip:text ancestor — a foil headline, a solid button —
+   arrives at the highlight already filled `transparent`, and a highlight that
+   sets only `color` paints a lime slab with no word in it.
+
+   This is stated once, here and on the four found rules below, rather than
+   per clipping context. It was previously done the other way: .text-foil and
+   .cf-btn--solid each carried their own ::selection rule restating this exact
+   pair, byte for byte, because the rule here was missing one property. Two
+   clipping contexts, two copies; a third would have needed a third. The
+   found state never got its copy at all, which is how the CURRENT MATCH —
+   the one drawing this brand is named after — came to render as an empty
+   lime block inside every foil headline and every solid button on the site.
+   → scripts/check-highlight-fill.py */
+::selection {
+  background: var(--cf-lime);
+  color: var(--cf-schwarz);
+  -webkit-text-fill-color: var(--cf-schwarz);
+}
+
+/* A brand named after a keyboard shortcut could not draw a key. A keycap is an
+   OBJECT in this system's own taxonomy — a body of its own, like a control or a
+   plate — so it takes the 2 px corner and a contour rather than a fill, which
+   is the one thing that separates it from the code span it would otherwise be
+   mistaken for. Zero specificity, so .cf-prose's own code/kbd/samp rule still
+   wins inside an article. → foundations/found.html */
+:where(kbd) {
+  display: inline-block;
+  padding: 0.1em 0.4em;
+  border: var(--stroke-1) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   THE FOUND STATE
+   Control-F is find-in-page. The brand is named after the gesture and the
+   system had no drawing for its result, so every match on this site was
+   whatever the browser painted — UA yellow, in three different registers.
+
+   ONE DRAWING, TWO RUNGS. A match is a word standing on a lattice edge — a
+   2 px ground line in ink, the way every object in this system is placed. The
+   match the reader is standing on is the same word with the light layer
+   switched on behind it. Contour before fill, and the presence ladder read as
+   attention rather than as arrival.
+
+   The ground line is not decoration and cannot be dropped: it is what holds
+   the 3:1 boundary the fill cannot (lime is 1.37:1 on CF-Grau, 1.13:1 on
+   Weiss), and it is what keeps the mark off colour alone. It is 2 px rather
+   than the system hairline because a 1 px underline at this offset is already
+   what a:not([class]) draws, and a mark must not read as a link. See
+   tokens.css § 8c for the measurements and the property list this drawing
+   had to be built inside.
+   -------------------------------------------------------------------------- */
+/* EVERY PSEUDO-ELEMENT BELOW GETS ITS OWN RULE, and the repetition is load-
+   bearing. A selector list is not forgiving: one pseudo-element the browser
+   has never heard of drops the WHOLE rule, every other selector in it
+   included. ::target-text has been Baseline since December 2024 and
+   ::highlight() only since June 2025, so a list naming both would have taken
+   the older, better-supported half down with the newer one in exactly the
+   browsers that still needed the fallback. :is() would not help — it is
+   forgiving for selectors, not for pseudo-elements, which cannot appear in it
+   at all. So: one rule each, and --found-* is what keeps them one drawing. */
+:where(mark), .cf-mark {
+  background-color: transparent;
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: var(--found-rule);
+  text-decoration-thickness: var(--found-rule-weight);
+  text-decoration-skip-ink: none;
+  text-underline-offset: var(--found-offset);
+}
+
+/* The current match, as an element.
+
+   THE FILL IS RESTATED, not aliased to `color`, for the reason set out at
+   ::selection above: inside a foil headline or a solid button this element's
+   inherited -webkit-text-fill-color is `transparent` and beats --found-ink.
+   Measured before this line existed: the word inside the lime slab did not
+   render at all, at any size, on either designed page.
+
+   NOTHING IS RESTATED ON THE NON-CURRENT RUNG, and that is the boundary this
+   stops at. :where(mark)/.cf-mark takes `color: inherit` because a match the
+   reader has not arrived at is the running text with a ground line under it —
+   inside a foil, the running text is the foil, and inheriting the clip is the
+   correct drawing rather than a bug it got away with. Only the rung that
+   supplies its OWN ink has an ink to lose. */
+.cf-mark--current {
+  background-color: var(--found-light);
+  color: var(--found-ink);
+  -webkit-text-fill-color: var(--found-ink);
+  text-decoration-line: underline;
+  text-decoration-color: var(--found-rule);
+  text-decoration-thickness: var(--found-rule-weight);
+  text-decoration-skip-ink: none;
+  text-underline-offset: var(--found-offset);
+}
+
+/* The current match, as a URL. A text fragment (#:~:text=…) is a reader
+   arriving from a search engine or a shared link straight onto the phrase
+   they were promised, and it is the one register here nothing on the page
+   has to implement. ::target-text is also the reason this whole drawing
+   avoids border and padding: it is a highlight pseudo-element and can have
+   neither, so nothing else may either. */
+::target-text {
+  background-color: var(--found-light);
+  color: var(--found-ink);
+  -webkit-text-fill-color: var(--found-ink);
+  text-decoration-line: underline;
+  text-decoration-color: var(--found-rule);
+  text-decoration-thickness: var(--found-rule-weight);
+  text-decoration-skip-ink: none;
+  text-underline-offset: var(--found-offset);
+}
+
+/* The Custom Highlight API half: a page that finds its own matches registers
+   its ranges under these two names and the styling comes from here, so a
+   search feature ships no CSS of its own and cannot draw a match differently
+   from the way the server or the URL draws one.
+   → foundations/found.html */
+::highlight(cf-found) {
+  background-color: transparent;
+  text-decoration-line: underline;
+  text-decoration-color: var(--found-rule);
+  text-decoration-thickness: var(--found-rule-weight);
+  text-decoration-skip-ink: none;
+  text-underline-offset: var(--found-offset);
+}
+/* The fill is restated on the highlight pseudo-elements too, and it takes: a
+   highlight pseudo accepts only a short list of properties, and Chromium
+   honours -webkit-text-fill-color on both of these. Verified by render — a
+   ::highlight(cf-found-current) range inside a .text-foil paragraph draws its
+   word without it missing. */
+::highlight(cf-found-current) {
+  background-color: var(--found-light);
+  color: var(--found-ink);
+  -webkit-text-fill-color: var(--found-ink);
+  text-decoration-line: underline;
+  text-decoration-color: var(--found-rule);
+  text-decoration-thickness: var(--found-rule-weight);
+  text-decoration-skip-ink: none;
+  text-underline-offset: var(--found-offset);
+}
+
+/* FORCED COLOURS: MARK IS A PLATE COLOUR, NOT AN INK COLOUR.
+
+   Mark / MarkText is still the system pair for precisely this meaning and the
+   light rung still takes it. What changed is WHERE it is allowed to land.
+   Mark is yellow and MarkText is black in BOTH forced palettes — they are the
+   one pair in play here that does not flip — while Canvas and CanvasText do.
+   So MarkText holds only where it sits ON the Mark plate, and everything this
+   drawing puts outside that plate takes CanvasText instead: the whole of the
+   contour rung, which has no plate at all, and the ground line of the light
+   rung, which hangs below the plate on the page itself. That is one answer,
+   and it is the one the rest of this file already means by "ink in this
+   palette" — .text-foil takes CanvasText, .rule redraws itself in it.
+
+   MEASURED BY RENDERING, because the computed style was right in the case
+   that failed. Chromium 149 and 151, forced-colors: active, prefers-color-
+   scheme light and dark, the five rungs on a served page, the screenshots
+   read back pixel by pixel. This is the state the two CanvasText declarations
+   below were written against, and it is history now:
+
+     light   .cf-mark           black ink, black ground line       correct
+             .cf-mark--current  yellow plate, black ink, rule      correct
+     dark    .cf-mark           ONE COLOUR. 100 % Canvas. NOTHING.
+             .cf-mark--current  yellow plate, black ink, NO RULE
+
+   `color: inherit` DOES NOT INHERIT under forced colours. The mode re-forces
+   the computed value, and for a <mark> Chromium forces it to MarkText — so
+   the contour rung drew black ink under a black ground line on a black
+   Canvas, and every non-current match on this site was invisible under a
+   dark forced palette. The declaration read `color: inherit` and the
+   computed value came back rgb(0, 0, 0): there is no reading of this file,
+   and no computed style, that could have found it. Only the screenshot.
+
+   THE BACKPLATE IS PAINTED OVER THE ELEMENT'S OWN BACKGROUND, and that is
+   the second half of this, reached from a report that the two element rungs
+   were black blocks under the dark palette. Chromium lays an opaque Canvas-
+   coloured plate behind every run of text in this mode, so that text over an
+   image stays readable. The plate does not belong to the text's own box: it
+   belongs to the BLOCK CONTAINER that lays the text out, and it is painted
+   in that container's background phase. For an inline <mark> in a paragraph
+   the container is the paragraph, so the backplate goes down BEFORE the
+   mark's inline background and the yellow covers it. Blockify the mark and
+   the container IS the mark: the backplate goes down after its own
+   background, and the plate the rung is made of is gone.
+
+   Measured, Chromium 151, forced-colors: active, both schemes, one <mark
+   class="cf-mark--current"> per structural case on a served page, the
+   element screenshotted and the pixels counted:
+
+     inline in a <p>       both   yellow plate, black ink, rule    correct
+     inside an inline-box  both   yellow plate, black ink, rule    correct
+     inside .text-foil     both   yellow plate, black ink, rule    correct
+     flex item             light  WHITE plate, black ink           plate gone
+                           dark   BLACK BLOCK. No ink at all.
+     grid item             the same two, and so does display: block
+
+   So the reported failure was again not the one that reproduced, and the
+   thing at risk on these two rungs was never the ink or the pair — it was
+   the plate, and only where a mark is the block container of its own text.
+   Every match this system ships is inline and renders correctly in both
+   palettes today. `forced-color-adjust: none` is the one declaration that
+   stops the backplate, and it does NOT leave the reader's palette: every
+   value in these two rules is a system colour keyword, and a system colour
+   keyword still resolves to the theme under the escape. Re-measured with it
+   in place, the blockified cases arrive at the inline case's drawing in both
+   palettes and the inline cases do not move by a pixel. It is taken here
+   because the class is the system's public rung and cannot know what it will
+   be put on — found.html says an element rung could carry a border and a
+   corner and is held back to the pseudo-element's means, which is a promise
+   about drawing and not about display.
+
+   THAT IS THE FIX THE CALENDAR WAS WAITING FOR, and it is not applied from
+   here. .cf-calendar__day[aria-current="date"] > time is a flex item and had
+   exactly the black block above; it is not a .cf-mark and no selector in
+   this block reaches it, so its own rule in components.css carries its own
+   copy of the escape. What that note deferred to base.css was one
+   declaration and not a change of pair, and it now says so.
+
+   NOT ButtonFace / ButtonText, which is where .cf-pagination__page[aria-
+   current] went for the neighbouring finding, and did not stay. Measured on
+   the same run: ButtonFace resolves to the SAME value as Canvas in both
+   palettes — white on white, black on black — so a plate painted in it is
+   not a plate, and the light rung would arrive at the contour rung's
+   drawing. It cost that component its state rather than its legibility, and
+   that component has since answered it: its slot is an inline-flex box, so
+   it is the blockified case above, and it now takes Highlight/HighlightText
+   under this same escape — the pair the mode reserves for "the selected one
+   of a set", which is what that state means and is not what this one means.
+   Its comment carries the figures. Two states, one mechanic, two pairs,
+   because the escape decides whether a plate survives and the pair decides
+   what the plate says.
+
+   THE THREE HIGHLIGHT PSEUDO-ELEMENTS ARE NOT STYLEABLE HERE AT ALL, and
+   that is the half of this no choice of pair, and no escape, can reach.
+   Chromium paints ::target-text, ::highlight(cf-found) and
+   ::highlight(cf-found-current) with the UA's own Highlight / HighlightText
+   and discards every author declaration in this block. Re-measured when the
+   escape went onto the element rungs, in case the engine had moved: the two
+   ::highlight() names and ::target-text were screenshotted against the rules
+   as they stand, against the same rules carrying forced-color-adjust: none
+   INSIDE the pseudo, and against magenta and lime — colours no palette
+   contains, so an honoured declaration could not be mistaken for anything
+   else. All three variants came back byte for byte identical in both
+   schemes: one solid UA plate, no ground line, the contour rung and the
+   light rung told apart only by the current range's plate being painted
+   twice. forced-color-adjust is not on the closed list of properties a
+   highlight pseudo accepts, and Chromium treats it accordingly.
+
+   The one lever that does work is still forced-color-adjust: none on the
+   ORIGINATING element — measured again on #find-scope, where both rungs
+   immediately take their Mark plate and their ground line and become two
+   drawings again. It would mean setting it on every element that can contain
+   a match, which is the running text of the site: opting the page out of
+   forced colours to keep a drawing about accessibility. Not taken. The
+   escape two rules up is the opposite trade and that is why it is affordable
+   — it lands on the mark, which is a word, and not on the prose around it.
+   So the three rules below are correct and, on Chromium today, inert —
+   written anyway, because they are what a conforming engine paints, because
+   five rungs staying one drawing is the thing this section exists to hold,
+   and because the day the engine honours them nothing here needs revisiting.
+
+   ::selection has its own system pair and the UA applies it unasked. */
+@media (forced-colors: active) {
+  /* The ink is NAMED on the contour rung here, where at rest it is refused,
+     and that is not a second drawing. Under forced colours the running text
+     IS CanvasText — .text-foil's own forced-colours rule hands its
+     descendants exactly this value — so naming it names what the rung would
+     have inherited. Leaving it to the mode is the thing that does not work:
+     <mark> carries a UA colour of its own and the mode re-forces it to
+     MarkText. Only an ELEMENT rung has an ink to lose this way, which is why
+     ::highlight(cf-found) below still supplies none.
+
+     The escape is on this rung too, where it changes nothing that renders
+     today — the contour rung has no plate for a backplate to cover. It is
+     here so the two element rungs answer the mode the same way: one of them
+     needing it and the other not is a difference in their DISPLAY, not in
+     the drawing, and this file has no way to say that in a selector. */
+  :where(mark), .cf-mark {
+    forced-color-adjust: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+    text-decoration-color: CanvasText;
+  }
+  /* The fill is restated here for the same reason it is restated at rest, and
+     the system value has to be named rather than left to the mode: .text-foil
+     hands its descendants CanvasText in forced colours, which is the pair for
+     Canvas and not the pair for Mark. A match inside a foil headline would
+     draw body ink on a highlight plate — legible in most themes and guaranteed
+     by none of them. MarkText is the value that is guaranteed against Mark —
+     and it is guaranteed against nothing else, which is the whole reason the
+     ground line one declaration below is not MarkText too. The rule lands on
+     the page, not on the plate.
+
+     The escape is what keeps that plate on the page at all where the mark is
+     the block container of its own text, and it is stated before the pair
+     rather than after it so the order reads the way the paint does: stop the
+     backplate, then name what goes where it would have been. */
+  .cf-mark--current {
+    forced-color-adjust: none;
+    background-color: Mark;
+    color: MarkText;
+    -webkit-text-fill-color: MarkText;
+    text-decoration-color: CanvasText;
+  }
+  ::target-text {
+    background-color: Mark;
+    color: MarkText;
+    -webkit-text-fill-color: MarkText;
+    text-decoration-color: CanvasText;
+  }
+  ::highlight(cf-found) {
+    text-decoration-color: CanvasText;
+  }
+  ::highlight(cf-found-current) {
+    background-color: Mark;
+    color: MarkText;
+    -webkit-text-fill-color: MarkText;
+    text-decoration-color: CanvasText;
+  }
+}
+
+/* On paper there is no reader to stand on a match, so the current rung has
+   nothing to be current against, and lime prints as a pale wash that hides
+   the ink under it. Every match prints as the contour, which is the rung that
+   was carrying the meaning anyway. */
+@media print {
+  :where(mark), .cf-mark, .cf-mark--current {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+hr {
+  border: 0;
+  border-top: var(--stroke-1) solid var(--border-strong);
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   TYPE CLASSES
+   Named after the Figma text styles so design and code stay in sync.
+   -------------------------------------------------------------------------- */
+.t-display-1 {
+  font-family: var(--font-display);
+  font-size: var(--text-display-1);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+}
+.t-display-2 {
+  font-family: var(--font-display);
+  font-size: var(--text-display-2);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-display);
+}
+.t-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-h1);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+}
+.t-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-h2);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+}
+.t-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-h3);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+}
+.t-h4 {
+  font-family: var(--font-sans);
+  font-size: var(--text-h4);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+}
+.t-lead {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-light);
+  line-height: var(--leading-relaxed);
+  color: var(--text-secondary);
+}
+.t-body {
+  font-size: var(--text-md);
+  font-weight: var(--weight-light);
+  line-height: var(--leading-relaxed);
+}
+.t-body-sm {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-light);
+  line-height: var(--leading-relaxed);
+}
+
+/* Mono/Label — the single most recognisable text style in the brand.
+   Uppercase, 11 px, +0.01em. Used for eyebrows, counters, nav, meta. */
+.t-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+.t-label-lg {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+}
+/* Numbers, counters, tabular data. */
+.t-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.t-muted     { color: var(--text-muted); }
+.t-secondary { color: var(--text-secondary); }
+
+/* Measure — how wide a line of text is allowed to get. */
+.measure       { max-width: var(--measure); }
+.measure-tight { max-width: var(--measure-tight); }
+
+/* --------------------------------------------------------------------------
+   LAYOUT PRIMITIVES
+   -------------------------------------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: calc(var(--container-max) + var(--gutter) * 2);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  /* Every container is a query container, so a component can ask how much
+     room it actually has instead of guessing from the viewport. A card in
+     the 1280 content column and the same card in a 300 px documentation
+     panel are different problems; the viewport cannot tell them apart. */
+  container: layout / inline-size;
+}
+
+/* Section rhythm. The token is padding on BOTH edges, so the air between two
+   adjacent sections is twice it — 240 at the reference frame. Two modifiers
+   move it, and both are documented on foundations/layout.html rather than left
+   to be inferred from a pattern page.
+
+   --tight   the whole section takes --section-gap-sm instead. For a section
+             that opens a page directly under the page header, where the
+             header has already spent air of its own.
+   --flush   the TRAILING edge only. For the last section on a page, whose
+             bottom air belongs to .cf-footer--detached instead — one page can
+             then not disagree with another about how far the footer stands off.
+
+   --flush USED TO ZERO BOTH EDGES, and that was wrong twice over. Neither of
+   its two users wanted a zero top edge: patterns/ueber-uns.html's team section
+   came out with 120 px of air above it where every other section on the site
+   has 240, and patterns/blog-artikel.html's with 80 where its siblings have
+   200. And it broke the system's own idiom — every other --flush drops exactly
+   the ONE edge that meets a neighbour drawing it (.cf-section-header--flush its
+   bottom border and gap, .cf-pagination--flush its top margin and border).
+   Dropping both was the odd one out in a family of three. */
+.section {
+  padding-block: var(--section-gap);
+}
+.section--tight { padding-block: var(--section-gap-sm); }
+.section--flush { padding-block: var(--section-gap) 0; }
+
+/* THE LAST SECTION STANDS OFF THE FOOTER AT THE SMALL RHYTHM, AND EVERY PAGE
+   USES THE SAME NUMBER. Measured in the rendered image at 1440 x 900, consent
+   dismissed, from the last painted row above the footer to the first row of
+   its black plate, before this rule:
+
+     120 px   ten pages whose last section is a plain .section
+      80 px   the five ending on .section--tight (404, Datenschutz and the
+              three confirmation pages)
+     191 px   patterns/landing-page.html
+
+   Three numbers for one edge, and the largest of them is the one the site's
+   own screenshot of this seam was taken over. The landing page's is 120 + 71:
+   its last section is a pin, and a released .cf-pin__stage carries 71 px of
+   its own composition below the act's rule before the section's padding even
+   starts. That 71 is the stage's and stays; the 120 on top of it was this
+   rule's to answer, and 151 is what the same photograph measures now.
+
+   --section-gap is the air between two sections that are both content. The
+   footer is not one: it is a black plate that says the page has ended, and it
+   opens with 96 px of padding of its own before the CTA. --section-gap-sm is
+   what this system already reaches for when the neighbour has spent air of its
+   own — .section--tight, under a page header — and it is what this edge takes:
+   80 at the reference frame, 71 at 1280, 43 at 768, 32 at 375.
+
+   :is(main, main > :last-child) is both shapes the tree actually has: thirteen
+   pages whose last .section is a child of <main>, and three that wrap it in an
+   <article> or a <div> (blog-artikel, karriere-stelle, datenschutz). Nothing
+   deeper exists, and a fourth shape would show up as a page back at 120 rather
+   than as a silent failure.
+
+   :not(.section--flush) leaves the one section whose bottom edge must stay at
+   zero exactly as it was. Its clearance is .cf-footer--detached's margin, and
+   that rule reads the same token now, so the biconditional the two modifiers
+   are held to still lands on one distance.
+   → components.css .cf-footer--detached; foundations/layout.html */
+:is(main, main > :last-child) > .section:last-child:not(.section--flush) {
+  padding-block-end: var(--section-gap-sm);
+}
+
+/* 12-column content grid.
+
+   Stacked first. A .col-* is full width until the container it sits in is wide
+   enough to hold the split, which is the same shape .cf-statement, .cf-process
+   and .cf-value-row already use: the safe layout is the default, and the wide
+   one is the enhancement. A browser with no container-query support, or a .grid
+   placed outside any .container, therefore stacks rather than overflowing.
+
+   The threshold is the container's own width, not the viewport's, for the
+   reason written on .container: the same two-column split is comfortable in the
+   1280 px content column and cramped in a 533 px documentation panel, and only
+   the container can tell those apart. 56rem is the system's two-column
+   threshold — see the breakpoint register in tokens.css.
+
+   STACKED MEANS ONE TRACK, NOT TWELVE FULL-SPAN ONES. The stacked state used
+   to keep the twelve tracks and stretch every .col-* across them, which reads
+   the same but is not: twelve tracks carry eleven --grid-gap gaps, and the gap
+   is a rem, so it grows with the reader's font size while the viewport does
+   not. At a 20 px browser default on a 320 px screen the eleven gaps alone are
+   330 px inside a 270 px container — the page scrolled sideways before any
+   content was placed, on all five pages built on this grid. Measured at 35 px
+   of document overflow on each; foundations/layout.html carries the record.
+   So the tracks are now what the state is: one track stacked, twelve only
+   inside the same queries that give the spans out. .col-* pins 1 / -1, which
+   is every explicit track whichever declaration is live — the two rules
+   cannot disagree about a width the way a span and a track count can. */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--grid-gap);
+}
+.col-2, .col-3, .col-4, .col-5, .col-6, .col-7, .col-8, .col-12 {
+  grid-column: 1 / -1;
+}
+
+@container layout (min-width: 56rem) {
+  .grid { grid-template-columns: var(--grid-tracks); }
+  .col-2 { grid-column: span 2; }
+  .col-3 { grid-column: span 3; }
+  .col-4 { grid-column: span 4; }
+  .col-5 { grid-column: span 5; }
+  .col-6 { grid-column: span 6; }
+  .col-7 { grid-column: span 7; }
+  .col-8 { grid-column: span 8; }
+}
+
+/* A ROW THAT SPLITS SOONER.
+
+   56rem is the system's two-column threshold and it was measured for
+   .cf-statement and .cf-process — an illustration beside its copy, which
+   genuinely needs that much room before splitting is worth it. .col-*
+   inherited the number because it is the same shape. For a row of
+   independent text blocks it is too high, and the cost is measurable rather
+   than theoretical.
+
+   Measured on the one page that uses this grid. patterns/kontakt.html's
+   7 + 5 is stacked at every width below a viewport of ~1007, which draws its
+   form fields 801 px wide at a 900 px viewport and 895 at 1006 — well past
+   any line length a form wants — and then snaps to 522 + 366 at 1024. That
+   is 238 px of viewport where the split would have been comfortable: at 900
+   the row is 457 + 320.
+
+   So the threshold belongs to the ROW, not to the system, and it cannot be
+   derived from geometry. Only the author knows whether a column holds an
+   illustration or a phone number, and one number cannot serve twelve spans:
+   at 44rem of container a .col-6 is 340 px and comfortable while a .col-3 is
+   158 px and is not. A modifier hands that call to the person who knows.
+
+   44rem is not a new number — it is already in the register as the width
+   where .subdivide folds — so this gains the register a consumer rather than
+   a threshold. Tiering by SPAN rather than by row was the other candidate
+   and is wrong: a 7 + 5 whose two halves promote at different widths draws
+   the 7 beside a 12 and breaks the row. Pairs have to switch together.
+
+   Additive by construction. A .grid without the modifier is unchanged, and
+   the two rules never disagree — above 56rem both say the same span. The
+   track list comes with the spans here for the same reason it does at 56rem:
+   a span rule that fires while the stacked single track is still live would
+   manufacture eleven implicit tracks — and their gaps — to satisfy itself,
+   which is the overflow above by another road. */
+@container layout (min-width: 44rem) {
+  .grid--early { grid-template-columns: var(--grid-tracks); }
+  .grid--early > .col-2 { grid-column: span 2; }
+  .grid--early > .col-3 { grid-column: span 3; }
+  .grid--early > .col-4 { grid-column: span 4; }
+  .grid--early > .col-5 { grid-column: span 5; }
+  .grid--early > .col-6 { grid-column: span 6; }
+  .grid--early > .col-7 { grid-column: span 7; }
+  .grid--early > .col-8 { grid-column: span 8; }
+}
+
+/* A ROW WHOSE CELLS ARE SECTIONS.
+
+   --grid-gap is the distance between two cells of one row. It is the wrong
+   distance the moment that row stacks and each cell opens with a section header
+   of its own: the header already claims more air above itself than 24 px, so
+   the two blocks run together and the second one reads as a continuation of the
+   first rather than as the next thing. --section-gap-sm is the distance the
+   rest of the system uses between a header and whatever came before it, which
+   is what these are once they are one under the other.
+
+   Only row-gap moves. The column rhythm is never touched, and while a row holds
+   as many cells as it has columns this modifier is inert above the split —
+   there is one row, and one row has no row gap.
+
+   THAT IS A PROPERTY OF THE MARKUP, NOT OF THIS RULE, and the contact form is
+   the case that shows it: it carries a third cell, the tail that follows its
+   left column down, so above the split it has two rows and this distance
+   applies to a boundary that is not a section boundary at all. .cf-form in
+   components.css narrows it back to --space-8 there, at the same 44rem the
+   columns arrive on, and says why in place. A row of three cells wants that
+   answer or the one this rule gives, deliberately; it does not want to find
+   out which by looking.
+
+   It exists as a class for the reason .flow-8 does: patterns/kontakt.html had
+   this decision written as `style="row-gap: var(--section-gap-sm)"`, and
+   foundations/layout.html documents it as a rule of the system — a rule
+   reachable only by copying an attribute off one page is not one.
+   → foundations/layout.html#columns */
+.grid--sections { row-gap: var(--section-gap-sm); }
+
+/* THE CODA — what follows a register that has already closed.
+
+   A register in this system is a stack of type blocks standing on hairlines
+   and closing on one: .cf-vacancies, .cf-results, .cf-contact. Twice the site
+   puts a sentence after one of them inside the same section — the initiative
+   application under the open positions, the pointer to Karriere under the
+   contact list — and both times the distance was written as an inline
+   margin-top, at TWO DIFFERENT VALUES: --space-12 on patterns/karriere.html
+   and --space-8 on patterns/kontakt.html. One relationship, two numbers,
+   neither reachable from anywhere but the page it was typed on. That is the
+   third time this exact substitution has happened here, after .flow-8 and
+   .grid--sections, and it is the last one left in the pattern pages.
+
+   THE NUMBER IS NOT A NEW DECISION. .cf-pagination already answers this
+   question — it is the thing that follows a closed register, and it stands
+   --space-8 off it, for the reason written at that rule: the distance belongs
+   to the shape rather than to the page, so every page wants the same one. A
+   coda is the same shape without the controls. So kontakt was right and
+   karriere was 16 px generous, and the two now measure the same.
+
+   Not a .flow-* rung, deliberately. The rungs are resolved on the CHILD — the
+   margin is declared on `* + *` — so a child that carries a rung of its own
+   overrides the one its parent meant, and karriere's coda is a .stack .flow-6
+   of a sentence over a button. This is one element's distance from the thing
+   above it, which is what a margin says.
+   → foundations/layout.html#flow */
+.after-register { margin-block-start: var(--space-8); }
+
+/* FLOW PRIMITIVES — two ways of putting things in a line, one way of spacing
+   them.
+
+   .stack     down the block axis, spacing as margin between siblings
+   .cluster   along the inline axis, spacing as gap, wrapping
+
+   Both read --flow and both default to --space-4, so ONE set of rungs tunes
+   either. That symmetry is the point of this block. It did not hold before:
+   .stack carried five modifiers and .cluster carried a hard-coded gap, so the
+   first author who wanted a wider cluster had nothing to reach for and wrote
+   `style="gap:var(--space-8)"` on it — foundations/logo.html, the system's
+   only inline spacing override. A rung the family was missing became a length
+   in the markup, which is the exact failure the space scale exists to prevent.
+
+   The rungs are their own family rather than .stack--N, because they belong to
+   neither primitive: .flow-8 means the same thing on both, and a name that
+   says `stack` on a cluster would have to be read as a lie or duplicated.
+   They are the scale's own step numbers, so .flow-8 is --space-8 is 32 px.
+
+   .split IS GONE. It was `.cluster` plus `justify-content: space-between` and
+   minus the wrap, declared in shipping CSS and used by nothing — no pattern
+   page, no component page, no foundation. Twelve components do write those
+   same three declarations, but they write them on their own class names, which
+   a markup utility cannot reach without a build step this system does not
+   have. So the primitive was not being bypassed, it was simply never wanted.
+   It comes back as a modifier, where it costs two lines instead of five and
+   inherits the rungs: .cluster--between. */
+.stack { display: flex; flex-direction: column; }
+.stack > * + * { margin-block-start: var(--flow, var(--space-4)); }
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--flow, var(--space-4));
+}
+/* Pushes the row's ends apart. No wrap: space-between on a wrapped row strands
+   the last line's items at opposite edges, which is never what the caller of a
+   two-ended row means. */
+.cluster--between { flex-wrap: nowrap; justify-content: space-between; }
+
+.flow-2  { --flow: var(--space-2); }
+.flow-3  { --flow: var(--space-3); }
+.flow-6  { --flow: var(--space-6); }
+.flow-8  { --flow: var(--space-8); }
+.flow-12 { --flow: var(--space-12); }
+
+/* A ROW OF EQUAL TILES THAT FOLDS ON ITS OWN.
+
+   .grid divides a fixed twelve. This divides by however many fit: the count is
+   never declared, the browser derives it from one number — the smallest a tile
+   is allowed to be — and reflows without a query.
+
+   IT IS A PRIMITIVE BECAUSE THE SYSTEM ALREADY HAD IT TWENTY TIMES. The three
+   declarations below were written out by hand in components.css once, in
+   docs.css three times, and in sixteen page-local <style> blocks: the same
+   recipe with a different minimum and one of three gaps. Sixteen of those are
+   unreachable from the system — a rule you can only get at by copying it off
+   another page is not a rule, which is the argument that already brought back
+   .cluster--between and the .flow-* rungs.
+
+   AND BECAUSE EVERY ONE OF THEM COULD SCROLL THE PAGE SIDEWAYS. The minimum in
+   minmax(19rem, 1fr) is a floor the track will not go below, so a container
+   narrower than 19rem does not fold the row — it overflows, because the track
+   keeps its minimum and the grid keeps the track. Measured across the
+   documentation site: at a 320 px viewport five pages scrolled sideways, and at
+   320 px with the root font at 20 — where a reader who has enlarged their type
+   is — fourteen of forty-three did. min(--tile, 100%) is the whole fix. The
+   track's floor becomes the tile OR the container, whichever is smaller, so the
+   last column folds instead of pushing, and above the fold width the term is
+   inert: nothing that fits today lays out differently.
+
+   That guard is why this is a class and not a convention. It is one term, it is
+   easy to leave out, and leaving it out is invisible until somebody opens the
+   page at a width nobody tested.
+
+   --tile is a length, so it is a property rather than a family of classes —
+   the same call .subdivide makes with --subdivide-count. It is set in the
+   consumer's own rule rather than in the markup, because several of these
+   minima are measured numbers carrying a paragraph of reasoning
+   (.cf-team-grid's 11.5rem is chosen inside a 1.8rem window) and a measured
+   number belongs next to its measurement. The gap is --flow, so the .flow-*
+   rungs tune this exactly as they tune .stack and .cluster, and it defaults to
+   --space-4 for the same reason theirs does.
+
+   auto-fill is the base and auto-fit is the modifier. The two differ only when
+   the items do not fill the row: auto-fit collapses the empty tracks so the
+   survivors stretch, auto-fill keeps them so the survivors stay tile-sized.
+   Three cards in a row with room for five should stay three cards rather than
+   become three banners, so the default holds the size and .tiles--fit is how a
+   caller asks for the stretch. Both forms were already in use — eight of the
+   twenty were auto-fill and twelve auto-fit — so this is a distinction the
+   system had made and never named.
+
+   min-width: 0 on the items is load-bearing, not hygiene. 1fr is
+   minmax(auto, 1fr) and that auto floors at min-content, so without it a single
+   long German compound widens its own track past its share and the guard above
+   never gets to hold. The reset already sets overflow-wrap: break-word on
+   everything, so the word breaks inside the tile rather than escaping it.
+   → foundations/layout.html#tiles */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--tile, 16rem), 100%), 1fr));
+  gap: var(--flow, var(--space-4));
+}
+.tiles--fit {
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--tile, 16rem), 100%), 1fr));
+}
+.tiles > * { min-width: 0; }
+
+/* --------------------------------------------------------------------------
+   SUBDIVISION GRID — "Raster > Teilungsraster"
+   The manual's recursive square-subdivision system. Halve a surface, halve
+   the half, and so on: each column is half the width of the one before it
+   and carries twice as many rows, so every cell keeps the same proportion.
+
+   Two forms, both in the manual:
+     .subdivide            the pure system — geometric column widths
+     .subdivide--even      the applied editorial form — equal columns,
+                           hierarchy carried by the row count alone
+   The plate "Teilungsraster (Anwendungsbeispiel)" uses the even form; it is
+   what the blog grid is built on.
+
+   Depth is a class because grid-template-columns cannot be generated in
+   plain CSS. Rank — how many rows a column holds — is a number, so it is a
+   custom property: --rank. Track counts use minmax(0, …) throughout; a bare
+   1fr floors at min-content, which is how a single long headline pushes an
+   entire page sideways.
+
+   THE APPLIED FORM IS THE DEFAULT, and it is the base class that says so.
+   Until now --subdivide-cols was written only by the five modifiers, so a
+   .subdivide with no modifier read a property nothing had defined: the var()
+   was unresolvable, grid-template-columns became invalid at computed-value
+   time and fell back to `none`, and the whole field collapsed to one implicit
+   track with every column stacked on top of every other. Not a degraded
+   layout — an unreadable one, and silent, because a grid with one track is
+   still a grid. components/pagination.html shipped in exactly that state:
+   `class="subdivide"` with `--subdivide-count:3`, three columns drawn 1071 px
+   wide inside a 1072 px track, all three on the same pixels.
+
+   Defaulting to the even form is not a guess about what the author meant. It
+   is the manual's own applied plate — Teilungsraster (Anwendungsbeispiel) —
+   and it is the form every shipping use of this primitive takes. A missing
+   modifier now yields the shape the system uses most, and --subdivide-count
+   works on the base class, which is what the pagination markup assumed.
+
+   Audited across base.css and components.css: --subdivide-cols was the only
+   custom property in the layout primitives read by a base rule and written by
+   nothing but modifiers. --rank, --subdivide-count and --btn-w all carry a
+   fallback or are read only by the same selectors that set them, and
+   --cf-specular is registered with @property. So this is one bug, not a
+   pattern — but the check is worth re-running before adding a sixth modifier.
+   -------------------------------------------------------------------------- */
+.subdivide {
+  /* Written once, read twice: here as the default and below as the modifier,
+     so the two can never disagree about what "even" means. */
+  --subdivide-even: repeat(var(--subdivide-count, 5), minmax(0, 1fr));
+  --subdivide-cols: var(--subdivide-even);
+  display: grid;
+  grid-template-columns: var(--subdivide-cols);
+  container-type: inline-size;
+}
+/* Exact halves: the last two tracks are equal, so the series sums to a power
+   of two. 8+4+2+2 = 16 gives 1/2, 1/4, 1/8, 1/8. */
+.subdivide--3 { --subdivide-cols: 4fr 2fr 2fr; }
+.subdivide--4 { --subdivide-cols: 8fr 4fr 2fr 2fr; }
+.subdivide--5 { --subdivide-cols: 16fr 8fr 4fr 2fr 2fr; }
+.subdivide--6 { --subdivide-cols: 32fr 16fr 8fr 4fr 2fr 2fr; }
+
+/* The applied form. Column count is a plain number, so it is a property
+   rather than four more classes: style="--subdivide-count:4".
+
+   Now that the base class defaults to this, the modifier is no longer what
+   turns the even form on — it is what names it at the call site, and the way
+   back to it from a depth class. It stays a real declaration rather than a
+   comment for the second reason: .subdivide--4.subdivide--even has to be
+   even, and it is, because this rule is the later one. */
+.subdivide--even { --subdivide-cols: var(--subdivide-even); }
+
+/* A full-width band inside the subdivision that adopts the parent's tracks.
+   The subdivision is rarely one object: the applied plate draws the ruled
+   grid and, under it, a mono axis whose ticks label the columns. Those are
+   two bands that must agree on the same track set forever, and they cannot
+   be one element because the ruled box's contour stops at the grid.
+
+   Before this existed the axis declared its own repeat(5, …) and the two
+   were wired independently — set --subdivide-count to anything but 5 and
+   the ticks silently stop standing under the columns they name. Now the
+   track set is declared once, on .subdivide, and every band reads it.
+
+   Two declarations on purpose: the second is the real one, and a browser
+   without subgrid drops it and keeps the first. They resolve identically
+   while .subdivide carries no column-gap — which it does not — and the
+   subgrid path is the one that stays correct if it ever does, because a
+   gap belongs to the track set and var(--subdivide-cols) does not carry it.
+
+   A band is a grid ITEM of .subdivide, so --rank does not apply to it and
+   .subdivide__col's fold rule does not reach it. Both are correct: a band
+   is one row of the subdivision, not a column of it. */
+.subdivide__row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: var(--subdivide-cols);
+  grid-template-columns: subgrid;
+  min-width: 0;
+}
+
+/* A column of the subdivision. --rank is the number of rows it carries;
+   the manual doubles it from one column to the next: 1, 2, 4, 8, 16. */
+.subdivide__col {
+  display: grid;
+  grid-template-rows: repeat(var(--rank, 1), minmax(0, 1fr));
+  min-width: 0;
+}
+.subdivide__col > * { min-width: 0; }
+
+/* Below the width where the finest ranks stop being readable, every column
+   spans the whole grid and they stack instead. The query asks .subdivide
+   itself — the same grid is fine in 900 px of page and unreadable in 900 px
+   of viewport with a 272 px sidebar in front of it, and only the container
+   knows the difference. */
+@container (max-width: 44rem) {
+  .subdivide__col {
+    grid-column: 1 / -1;
+    grid-template-rows: none;
+  }
+}
+
+/* THE FOLD WIDTH IS NOT A PROPERTY OF THE PRIMITIVE, IT IS A PROPERTY OF THE
+   COLUMN COUNT — and 44rem above is the number for the counts this system
+   mostly runs. blog-artikel.html runs the grid at three, and three columns of
+   a 44rem container are 234 px each, which reads. Five columns of the same
+   container are 141 px, and 141 px is where the applied form stops working.
+
+   Measured on the landing page, at the pixel after the fold — a viewport of
+   792, a container of 705:
+
+     .cf-blog-card--compact is one line with an ellipsis, so its cell has to
+     hold the headline's FIRST WORD plus the ellipsis or it labels nothing.
+     At --text-sm the widest first words in that grid are "Smart-Home-Systeme"
+     at 130 px and "Erneuerbaren-Ausbau" at 127. The cell gives
+     C/5 - 1 - 2 x --space-3 of text width, which at C = 705 is 116 px. Two of
+     the twelve tail headlines therefore rendered as a fragment of one word
+     followed by an ellipsis: not a shortened headline, an unlabelled link.
+     Six of the twelve showed fewer than two whole words. One pixel earlier,
+     folded, all eighteen headlines were complete.
+
+   The floor solves to C >= 5 x (130 + 24 + 1) = 775, binary-searched to 773.
+   48rem / 768 is the register's next number up and misses it by 5 px, which
+   is the wrong side of a window too narrow to build on — the content is
+   placeholder copy and the next real headline can have a longer first word.
+   56rem / 896 clears it by 121 px and is already the width at which
+   .cf-statement and .cf-process take their two-column form, so the page
+   changes shape once rather than twice: before this the blog grid went wide
+   200 px of container before anything else on the page did.
+
+   A second consumer for an existing number, not a second number — the same
+   move .grid--early makes in the other direction on 44rem, and the reason
+   this is a modifier rather than a change to the rule above: the primitive's
+   own fold is right for three columns and this one is right for five.
+   → foundations/layout.html, and the register in tokens.css */
+@container (max-width: 56rem) {
+  .subdivide--late .subdivide__col {
+    grid-column: 1 / -1;
+    grid-template-rows: none;
+  }
+}
+
+/* Page wash — the long CF-Grau → white gradient the whole site sits on.
+   The grain tile rides on top of the ramp inside the same background, so it
+   dithers the wash and never touches the text above it. Fixed attachment on
+   both layers: the wash does not scroll, and neither does the grain, which
+   is what film grain does. */
+.page-wash {
+  background-image: var(--grain), var(--surface-page-wash);
+  background-repeat: repeat, no-repeat;
+  background-size: 140px 140px, cover;
+  background-attachment: fixed;
+}
+
+/* AND THE WASH IS THE ONE PAINT THAT WAS GETTING PAST FORCED COLOURS, which is
+   not what anything in this file assumed. .material-glass-edge's note above
+   says "forced colours drops every gradient background-image", and measured on
+   its own that is true: an element whose whole background is a gradient comes
+   back `background-image: none`. It is only true ON ITS OWN. Measured in
+   Chromium 149 and 151, forced-colors emulated:
+
+     background-image: <gradient>                        -> none
+     background-image: url(<data-uri>)                   -> kept
+     background-image: url(<data-uri>), <gradient>       -> BOTH kept
+
+   So a gradient beside a url() layer is carried through with it, and this rule
+   is exactly that shape: --grain is a data-URI SVG and --surface-page-wash is
+   the CF-Grau ramp. The site therefore shipped its full light wash under a
+   DARK forced palette — measured on blog-artikel.html, a CF-Grau field from
+   216 to 248 with the forced white text sitting on it, each run of text on the
+   black Canvas backplate Chromium lays down behind it. Not a contrast failure,
+   because the backplate does its job; a mode that was asked for a palette and
+   given a decorative ground instead.
+
+   It is also what made every SVG in the site look fine in this mode and hid
+   the real fault under it. Forced colours does not force `fill` and `stroke` —
+   the spec leaves those to the author — so every drawing here is still ink
+   black, and it read only because the wash it stood on was still CF-Grau. The
+   figures that DON'T sit on the wash (a --flat or --plain docs demo) were
+   already black on black, which is where this was found. Dropping the ground
+   and naming the ink are one change: either alone paints one of the two on the
+   other. Every drawing's own forced-colours rule is in components.css and
+   acts.css beside the drawing.
+
+   The grain goes with it. It is 8 % greyscale noise, it is a texture rather
+   than information, and leaving it is a url() layer painting over a palette
+   the reader chose. */
+@media (forced-colors: active) {
+  .page-wash { background-image: none; }
+}
+
+/* --------------------------------------------------------------------------
+   SURFACES & MATERIALS
+   -------------------------------------------------------------------------- */
+.surface-base    { background: var(--surface-base); }
+.surface-sunken  { background: var(--surface-sunken); }
+.surface-raised  { background: var(--surface-raised); }
+.surface-inverse { background: var(--surface-inverse); color: var(--text-inverse); }
+
+/* Milchglas — frosted glass. Always needs something behind it to be legible,
+   and something *complex* behind it to be worth using at all.
+   Bearing tint by default: this is the variant text is allowed to sit on. */
+.material-glass {
+  background: var(--surface-glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  /* ONE LINE, AND IT IS THE LIT ONE. A dark 1 px ring ran inside this rim for
+     one release — on the material first, then only on .cf-btn--glass — to
+     carry a boundary the rim cannot hold against a backdrop nobody controls.
+     Both are gone: this brand does not outline glass, at any size and on any
+     surface. The measurement that motivated the ring, and the two ways to get
+     a boundary back without ink, are in tokens.css where the token used to be
+     and on foundations/materials.html. Do not add it back here. */
+}
+/* There is no --heavy variant. A 28 px blur was declared here and never used
+   by anything, and the cost rule in tokens.css rules it out anyway: 16 px is
+   the ceiling because more reads no better and costs more. A heavier blur has
+   one honest use — making content behind genuinely unreadable rather than
+   merely calm — and the system solves that with an opaque scrim instead (see
+   .cf-consent__dialog::backdrop). Retired rather than left for the next run
+   in this lane to rediscover as dead. */
+
+/* Veil tint — for a sheet that carries nothing but opaque objects. Almost
+   clear, so the blur is what you see rather than a wash of white.
+
+   It keeps the refraction line: the tint is the thing that changes, not the
+   edge, and a nearly clear plate needs its boundary drawn MORE than a bearing
+   one does, not less. A sheet that ends at a single edge rather than closing
+   a perimeter — the navigation band, or the band in the layer stack on
+   foundations/materials.html — turns the line off where it is used, next to
+   the `border: 0` that already says the same thing about the rim. */
+.material-glass--veil { background: var(--surface-glass-veil); }
+
+/* Thin tint — bearing glass again, over a backdrop THE PAGE OWNS. The third of
+   the three tints tokens.css declares, and until now the only one with no class
+   behind it: the chapter described it, patterns/expertise.html reached for it
+   through --info-card-tint, and no page in the system rendered it. That is not
+   a tidiness gap. A tint nothing draws is a tint no screenshot contains, and
+   the fallback hole this run fixed in tokens.css — --surface-glass-thin left
+   translucent under forced colours while the other two went to Canvas — is
+   exactly what that costs.
+
+   THE MODIFIER CARRIES NO PERMISSION, and that is the whole reason it is worth
+   saying twice. 30 % is not a lighter look available on request; it is what one
+   measurement on one named backdrop came back with. Put it over the hero
+   poster, which is what the two samples above it stand on, and it is the 46 %
+   floor's premise being ignored rather than a thinner pane. So the sample on
+   foundations/materials.html stands on .cf-ground instead, which is the surface
+   the number was measured against — the demo teaches the rule by what it is
+   standing on rather than by the caption under it. */
+.material-glass--thin { background: var(--surface-glass-thin); }
+
+/* The lit edge of a glass sheet. Put it on the edge the sheet ends at. */
+.material-glass-edge {
+  height: var(--stroke-1);
+  background: var(--glass-edge);
+  border: 0;
+}
+/* Forced colours drops every gradient background-image, and this element IS
+   its background-image — 1 px tall, no border, nothing else to paint. So the
+   sheet in the layer stack on foundations/materials.html lost the edge it is
+   there to demonstrate. Redrawn as a border, which is the only paint the mode
+   keeps, and `border: 0` above is what made that the fix rather than a second
+   line: there is nothing to double. Same idiom as .cf-arrive__line and
+   .cf-progress__rail, which reach for CanvasText for the same reason. */
+@media (forced-colors: active) {
+  .material-glass-edge { border-top: var(--stroke-1) solid CanvasText; }
+}
+/* And the same in the two no-blur doors, for the reason the forced-colours rule
+   gives one line up: this element IS its background-image, and tokens.css turns
+   --glass-edge off wherever the blur is off — no material, no material light.
+   The band in the layer stack on foundations/materials.html is the other sheet
+   in the system that ends at a single edge rather than closing a perimeter
+   (`border: 0` above says so), so without this the sample that teaches the
+   material's edge would have nothing on it in exactly the tiers that page
+   documents. Same ink and same argument as .cf-nav::after in components.css;
+   two blocks because @supports and @media do not combine into one query. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .material-glass-edge { border-top: var(--stroke-1) solid var(--border-default); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .material-glass-edge { border-top: var(--stroke-1) solid var(--border-default); }
+}
+/* Kontur — 1 px outline, the default way to draw a box in this brand. */
+.material-outline {
+  border: var(--stroke-1) solid var(--border-strong);
+  background: transparent;
+}
+/* Licht-Ebene — lime, as a highlight. Never as a background for text blocks. */
+.material-light { background: var(--gradient-light); color: var(--accent-ink); }
+.material-solid { background: var(--surface-inverse); color: var(--text-inverse); }
+
+/* THE SAME LIGHT, WITH ITS ONE FREE PARAMETER EXPOSED.
+   --gradient-light is the near rake at the designer's own 132.36°, inset stops
+   kept verbatim. This is the ramp stated as a band instead — lime at 0,
+   CF-Grau at 100, and Glas wherever --rake puts it. Three rakes are sanctioned
+   and only the near one had a drawn form; the other two were numbers, which is
+   why two documentation pages ended up re-typing the ramp as six inline
+   gradient literals to show them.
+
+   THOSE SIX WERE THE LAST GRADIENTS IN THE SYSTEM ON THE UNCORRECTED sRGB
+   PATH, and that is the reason this exists rather than tidiness. An inline
+   style attribute cannot be reached by the @supports block at the foot of
+   tokens.css, so the page that teaches the ramp was the one place drawing it
+   through the muddy dip the rest of the family corrects for: at the crossover
+   of the lime leg, sRGB gives #D4F66A where oklab gives #D3F798 — dE 0.045,
+   the family's second-worst leg, and plainly visible at 7 rem square.
+
+   IT IS A CLASS AND NOT THREE TOKENS, for the reason .cf-field::before is one:
+   a custom property is substituted at computed-value time on the element that
+   DECLARES it, so a --gradient-rake written at :root would resolve --rake
+   against :root's near rake and inherit that literal into every modifier.
+   Composing the image here lets a modifier move the rake, and lets the oklab
+   branch below restate the path and nothing else. Same shape --foil-image
+   uses, for the same reason.
+
+   THE MIRROR IS NOT A SECOND RAMP. Grey at the left and lime at the right is
+   the same band read from the other end — a face turning away rather than one
+   turning toward — so it is an angle, written 180° off --angle-square so it
+   cannot drift into a hand-typed 270deg that means nothing.
+
+   A surface material, like .material-light: a face, an edge, a plate. Not a
+   background for text. */
+.material-rake {
+  --rake: var(--rake-near);
+  --rake-angle: var(--angle-square);
+  --rake-ramp: var(--cf-lime) 0%, var(--cf-glas) var(--rake), var(--cf-grau) 100%;
+  --rake-image: linear-gradient(var(--rake-angle), var(--rake-ramp));
+  background: var(--rake-image);
+  color: var(--accent-ink);
+}
+.material-rake--mid    { --rake: var(--rake-mid); }
+.material-rake--far    { --rake: var(--rake-far); }
+.material-rake--mirror { --rake-angle: calc(var(--angle-square) + 180deg); }
+/* The designer's own second linear, which is the mid rake seen at 239.25°. It
+   is an angle and nothing else, so it composes with the rakes rather than
+   replacing one: --grazing --mid is the gradient the Figma dump contains, and
+   --grazing on its own is the near rake grazing. 239.25° is not one of the four
+   sanctioned angles and is kept anyway for the reason 132.36° is — it is
+   measured off the material, not derived. Do not generate new angles from it. */
+.material-rake--grazing { --rake-angle: 239.25deg; }
+@supports (background: linear-gradient(in oklab, red, blue)) {
+  .material-rake { --rake-image: linear-gradient(var(--rake-angle) in oklab, var(--rake-ramp)); }
+}
+
+/* THE SAME LIGHT ARRIVING AS A BLOOM RATHER THAN A SWEEP.
+   Four of the six gradients in the Figma dump are radial, and until now the
+   radial half of the light family was three tokens that nothing consumed —
+   --gradient-bloom, --gradient-bloom-iso and --gradient-bloom-top. They are
+   gone and this is what replaced them, for the reason .material-rake replaced
+   six inline literals: they were a third and fourth statement of a ramp the
+   system has already agreed to state once.
+
+   They had also drifted apart from each other, which is the sharper reason.
+   Two of the three were built from --rake-mid and mirrored; the third was
+   pasted in as raw Figma percentages, unmirrored, deriving from nothing. Read
+   as a family they disagreed about direction AND about whether a rake was a
+   parameter or a literal. Two hands, not one.
+
+   THE THIRD ONE IS THE FAR RAKE, and that is arithmetic rather than an
+   assertion. Its stops are lime 26.66 %, Glas 73.62 %, CF-Grau 100 %, so the
+   band runs 26.66 → 100 and Glas sits at
+
+     26.66 + (100 − 26.66) × 0.64 = 73.60 %
+
+   against the designer's 73.62. Two hundredths of a point, which is his
+   exporter rounding 64.03 to the sanctioned 64. So --bloom-in-n keeps the
+   inset verbatim — a lime core in the middle of a light source is a real part
+   of the drawing, not an artefact — and the rake underneath it is derived like
+   every other rake in the family.
+
+   MIRRORED BY DEFAULT, because the dominant radial form in the dump puts the
+   surface at the centre and the light on the rim: an object lit from all
+   round, which is what cards 02 and 04 draw. --top is the exception and
+   inverts it, because a surface lit from above has its light where the light
+   comes from.
+
+   A surface material, like .material-rake: a face, an edge, a plate. Not a
+   background for text. */
+.material-bloom {
+  --bloom-rake-n: var(--rake-mid-n);
+  --bloom-in-n:   0;
+  --bloom-shape:  circle;
+  --bloom-at:     50% 50%;
+  --bloom-ramp:   var(--cf-grau) 0%,
+                  var(--cf-glas) calc((100 - var(--bloom-rake-n)) * 1%),
+                  var(--cf-lime) 100%;
+  --bloom-image:  radial-gradient(var(--bloom-shape) at var(--bloom-at), var(--bloom-ramp));
+  background: var(--bloom-image);
+  color: var(--accent-ink);
+}
+/* THE ISOMETRIC CIRCLE, 2:1 WIDE — and the source does not say so, which is
+   worth stating plainly because the retired token claimed it did. Its comment
+   cited 02-datenfundament.svg, scale(120 59.88), as the authority for a 2:1
+   wide ellipse. That transform is translate(...) rotate(90) scale(120 59.88),
+   and the rotate swaps the axes: 59.88 wide by 120 tall. The designer's
+   ellipse is 1:2 TALL, and so is the Figma dump's (50 % 100 %).
+
+   It is tall because the thing it lights is: the rhombus under it in card 02
+   is 120 x 240, and the bloom is exactly half of it on both axes. That is a
+   light fitted to an object, not a projection rule — and a bloom fitted to its
+   object needs no token, because it is drawn with the object in SVG, which is
+   where both of the designer's live.
+
+   What the system needs a token for is the other thing: the circle seen in
+   2:1 isometry, which is 2:1 WIDE. --field-bloom's pool is that shape and is
+   named that in tokens.css. So the shape here is right and the citation was
+   wrong, and the two facts were never in contact until someone checked the
+   transform. */
+.material-bloom--iso { --bloom-shape: 100% 50%; }
+/* Light entering a surface from its top edge — the fourth radial in the dump,
+   45.72 % x 95 % from 50 % 0 %, at the far rake with the inset above. */
+.material-bloom--top {
+  --bloom-rake-n: var(--rake-far-n);
+  --bloom-in-n:   26.66;
+  --bloom-shape:  45.72% 95%;
+  --bloom-at:     50% 0%;
+  --bloom-ramp:   var(--cf-lime) calc(var(--bloom-in-n) * 1%),
+                  var(--cf-glas) calc((var(--bloom-in-n)
+                                      + (100 - var(--bloom-in-n)) * var(--bloom-rake-n) / 100) * 1%),
+                  var(--cf-grau) 100%;
+}
+@supports (background: radial-gradient(in oklab, red, blue)) {
+  .material-bloom {
+    --bloom-image: radial-gradient(var(--bloom-shape) at var(--bloom-at) in oklab, var(--bloom-ramp));
+  }
+}
+/* Forced colours drops every gradient background-image, and both classes ARE
+   their background-image — no border, no text, nothing else to paint — so an
+   element carrying only .material-rake or .material-bloom goes to Canvas on
+   Canvas: a swatch or a source with no edge, gone rather than merely flat.
+   Measured, Chromium, forced-colors: active, both schemes: three
+   .material-rake swatches on foundations/colors.html's gradient table and the
+   .material-bloom row beside them, and two of the four source figures on
+   foundations/light.html — Source · lit face and Source · rim, the two
+   built from these classes rather than from an SVG or a bordered element —
+   render as empty boxes; the page's own forced-colors rule for
+   .lit__contour's SVG stroke and .lit__source's always-on border left those
+   two looking handled while these two were not.
+
+   Redrawn as a border, same idiom as .material-glass-edge above: neither
+   class sets one at rest, so there is nothing to double, and a border on a
+   box already clipped to a circle by border-radius (.lit__disc,
+   .bloom-clip__disc) draws that circle's outline rather than a new rectangle
+   around it. It does NOT reach a box clipped by clip-path — border-radius
+   reshapes the border itself, clip-path only crops paint after the border is
+   already drawn around the untouched box, so a shape clip-path narrows below
+   that box loses the border with the area it cuts away. light.html's own
+   .lit__rhombus is exactly that case and carries its own forced-colors
+   override beside it, filled rather than outlined for the reason recorded
+   there. */
+@media (forced-colors: active) {
+  .material-rake,
+  .material-bloom { border: var(--stroke-1) solid CanvasText; }
+}
+/* The foil — the light layer carried far enough to split into the brand's
+   own spectrum. A surface material, like .material-light: an isometric face,
+   an edge, a plate. Not a background for text. */
+.material-foil { background: var(--gradient-spectrum); color: var(--accent-ink); }
+
+/* --------------------------------------------------------------------------
+   THE FIELD — the isometric lattice as a surface
+   Geometry in tokens.css, section 8b. This is only how it is hung on a box.
+
+   IT IS A PSEUDO-ELEMENT AND NOT A BACKGROUND, for one reason: the lit
+   variant is masked, and a mask on the element masks its text with it. So
+   the lattice gets a layer of its own at z-index -1, which the painting
+   order puts above the element's own background and below every scrap of
+   its content — exactly where the sixth material layer says a contour
+   belongs. `isolation: isolate` keeps that negative index inside the box
+   instead of letting it hunt for a stacking context up the tree.
+
+   Nothing about the box changes: no size, no spacing, no border. Drop
+   .cf-ground on a section that is already laid out and it acquires a floor.
+
+   TWO VARIANTS, AND THE DIFFERENCE IS HOW MUCH SURFACE IS ASKING FOR IT.
+
+     .cf-ground       the ground, edge to edge. For a bounded object — a
+                      figure, a plate, a demo frame — where the lattice is
+                      the subject and the box is small enough to be read
+                      as one drawing.
+     .cf-ground--lit  the ground under a travelling light. For a whole
+                      section, where an unbroken lattice across 900 px of
+                      page stops being a data space and becomes graph
+                      paper. The pool is the difference between a floor
+                      that is drawn and a floor that is lit.
+
+   THE LIGHT MOVES BECAUSE A FLOOR THAT IS ALWAYS LIT THE SAME WAY IS A
+   PRINTED FLOOR. Same commitment .text-foil makes and for the same reason:
+   the material has to answer to where the reader is, or it is a photograph
+   of the material. --field-light-y is the pool's position down the
+   surface, scrubbed off a view() timeline so it tracks the reader's hand
+   and runs backwards when they scroll up.
+
+   -20 % TO 120 % KEEPS THE POOL AT THE MIDDLE OF THE VIEWPORT. When a
+   section first crosses the bottom edge of the screen the reader's eye is
+   above its top; by the time it leaves, below its bottom. The pool
+   therefore starts a fifth of its own height off the top of the section
+   and ends the same distance past the bottom, which is what "the light is
+   where you are looking" comes out as once it is written in the section's
+   own coordinates rather than the screen's.
+
+   50 % IS THE REST VALUE and it is the designed still: the pool at the
+   middle of the surface, the reader square to it. Every path that cannot
+   run the animation — no @property, no scroll timeline, reduced motion,
+   print, forced colours — lands there rather than on an edge case, which
+   is the same fallback rule the swinging foil follows.
+
+   THE MASK ONLY EVER REMOVES INK. --field-ink's contrast floor is measured
+   unmasked in tokens.css, so every frame of this is at or under it and
+   none of them needs checking. That is a property of multiplying by an
+   alpha below 1, not a result.
+   -------------------------------------------------------------------------- */
+@property --field-light-y {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+
+/* THE OTHER AXIS. --field-light-y is where the pool is as the section travels
+   past an eye assumed to be at the middle of the screen. --field-light-x is
+   where the reader actually is across it, which nothing in CSS can ask —
+   see THE LINE OF SIGHT below. 50 % is the rest value and the designed still,
+   so a page with no pointer, no script, or a coarse pointer renders exactly
+   what it rendered before this property existed.
+
+   inherits: true, WHERE ITS TWIN IS FALSE, and the asymmetry is forced rather
+   than chosen: the light is painted by ::before and a script cannot set a
+   property on a pseudo-element, so the only way in is to declare it on the
+   originating element and let the pseudo inherit it. That is a subtree
+   invalidation on every write, which is why cf-sight.js quantises this one to
+   whole percent — one percent of a section is a few pixels under a 1152 px
+   pool, so most frames of a gesture write nothing at all. */
+@property --field-light-x {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
+}
+
+/* .cf-ground, NOT .cf-field — the form component has owned .cf-field since it
+   was written, with a whole __label / __input / __textarea / __select family
+   under it and a --invalid modifier beside it. Declaring the ground under the
+   same name put this ::before behind every row of the contact form: the
+   lattice ran under the placeholder of every input, which is the one place in
+   the system a busy ground is unreadable rather than atmospheric. The material
+   keeps its name — the tokens are all --field-* and the foundation page is
+   still "The Field" — because the material IS the field. What changed is the
+   class, which says what it does to an element: it puts it on the ground. */
+.cf-ground {
+  position: relative;
+  isolation: isolate;
+}
+.cf-ground::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  /* Composed here rather than at :root, because --field-ink is theme
+     dependent and a custom property is substituted on the element that
+     declares it. See the note in tokens.css section 8b. The pseudo-element
+     inherits --field-ink from its originating element, so a .cf-ground
+     inside an inverse section draws in white without either rule knowing
+     about the other.
+
+     One stop list, two rakes — material and angle declared apart, the same
+     split --foil-stops and --foil-rake make. The line sits in the middle of
+     its period with half a pixel of ramp either side, so both its edges are
+     antialiased and the wrap between periods happens in transparency. */
+  --field-stops: transparent 0,
+                 transparent calc(var(--field-half) - var(--field-edge)),
+                 var(--field-ink) var(--field-half),
+                 var(--field-ink) calc(var(--field-half) + var(--field-line)),
+                 transparent calc(var(--field-half) + var(--field-line) + var(--field-edge)),
+                 transparent var(--field-step);
+  --field: repeating-linear-gradient(var(--field-rake),        var(--field-stops)),
+           repeating-linear-gradient(var(--field-rake-mirror), var(--field-stops));
+
+  background-image: var(--field);
+}
+
+.cf-ground--lit::before {
+  --field-light-y: 50%;
+  -webkit-mask-image: var(--field-bloom);
+          mask-image: var(--field-bloom);
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-size: var(--field-pool-w) var(--field-pool-h);
+          mask-size: var(--field-pool-w) var(--field-pool-h);
+  -webkit-mask-position: var(--field-light-x) var(--field-light-y);
+          mask-position: var(--field-light-x) var(--field-light-y);
+}
+
+/* The damping, on the element rather than the pseudo, because that is where
+   the property is written. A pointer emits far more moves than a hand makes
+   gestures; without this the pool teleports between quantised stops. 120 ms
+   is --duration-fast, the shortest step the system has, and it reads as the
+   weight of a light rather than as lag. Under reduced motion the tokens
+   collapse to 1 ms and cf-sight.js does not run in the first place. */
+.cf-ground--lit {
+  transition: --field-light-x var(--duration-fast) var(--ease-out);
+}
+
+@supports (animation-timeline: view()) {
+  @media screen and (prefers-reduced-motion: no-preference) {
+    .cf-ground--lit::before {
+      animation: cf-field-light linear both;
+      animation-timeline: view();
+    }
+  }
+}
+@keyframes cf-field-light {
+  from { --field-light-y: -20%; }
+  to   { --field-light-y: 120%; }
+}
+
+/* Decoration with nothing to say. A printer renders it as a grey mesh over
+   the copy and a forced-colours palette has no value to give it that is not
+   either invisible or a second border. */
+@media print {
+  .cf-ground::before { display: none; }
+}
+@media (forced-colors: active) {
+  .cf-ground::before { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   FOIL TYPE
+   The gradient inside letterforms. It carries no lime,
+   so a screen that has already spent its lime moment can still take it.
+
+   Two variants, because a foil has two sides and the site has two surfaces:
+
+     .text-foil        light-on-dark. --gradient-foil, the lit half. Worst
+                       sample 11.9:1 on black. Inverse surfaces only —
+                       on CF-Grau its stops land between 1.1:1 and 1.5:1.
+     .text-foil--ink   dark-on-light. --gradient-foil-ink, the shadow half.
+                       Worst sample 5.24:1 on CF-Grau, 8.16:1 on white.
+                       Light surfaces only.
+
+   ONE FOIL MOMENT PER SCREEN, which is the brand's own unit for the lime
+   rule and the right unit here too — the constraint is what the eye takes in
+   at once, not what an URL contains. A page whose light-surface headline and
+   whose footer are never on screen together may carry one of each; that is
+   the case on both designed pages. Two on one screen is one too many.
+
+   THE CLIP BOX IS SIZED TO THE TEXT, and this is load-bearing rather than
+   tidy. background-clip:text clips a background painted across the whole
+   element box, and a display headline in a block is as wide as its column
+   however short the words are. Measured on the footer title before this
+   line existed: at a 1920 viewport the box was 1000 px and the inked text
+   378 px, so the letterforms sampled the first 36.5 % of a four-stop ramp.
+   Weiss and Glas rendered; Sky arrived barely; VIOLETT NEVER APPEARED ON
+   THE PAGE AT ALL, at any viewport above about 400 px. The comment in
+   tokens.css claiming the shallow rake "spreads it across the whole line"
+   was describing the intent, not the paint.
+
+   `fit-content` AND `max-width: 100%`, TWO DECLARATIONS, AND THE SECOND ONE
+   IS WHY. The intent has always been min(max-content, available): a short
+   headline shrink-wraps and a long one still wraps and fills its column.
+   This line used to say that intent was written `fit-content(100%)` — "the
+   function, with an explicit stretch basis" — and that the bare keyword did
+   not clamp. HALF OF THAT WAS RIGHT AND THE HALF THAT SHIPPED WAS NOT.
+   `fit-content()` is a css-sizing-4 function that no engine implements for
+   `width`; it is grid track sizing only. `CSS.supports("width",
+   "fit-content(100%)")` is FALSE on Chromium 141, so the declaration was
+   guaranteed-invalid and dropped, and this class has had `width: auto` for
+   as long as the line existed.
+
+   The measurement that put it here could not tell the difference. The test
+   was an h3 in a 100 px box: `fit-content` rendered 277.84 px, the function
+   form rendered 100 — which is exactly what a DROPPED width does in a 100 px
+   box. A dropped declaration and a working clamp are the same number when
+   the box is the containing block, and that is the one case the isolated
+   test had. The overflow it was fixing did go away, because `width: auto`
+   also does not overflow; the clip box the same block claims to size did
+   not come back. Measured on the shipped tree at 1280, ink over box:
+   Über uns 23.6 %, Karriere 21.1 %, Suche 16.7 %, News 14.8 % — every page
+   header on the site painting the first fifth of a four-stop ramp, which is
+   the defect the paragraph above says was fixed, still there and now
+   documented as gone.
+
+   The bare keyword is the supported spelling of the intent, and the case it
+   loses on is a min-content wider than the column — "Maschinenbau" at 42 px
+   in a 164 px card, which is what sent this to the function form. That is a
+   max-width's job and not a width's: `max-width: 100%` caps the box at the
+   containing block, so the degenerate case lands on the same box `auto`
+   gives it (ink overflows an unbreakable word either way) and every other
+   case shrink-wraps. Both are ordinary CSS both engines have shipped for a
+   decade.
+
+   scripts/check-foil-clip.py is the gate, and it exists because this failure
+   was silent in both directions: an unsupported value renders as no value,
+   and the ramp it costs is only visible with a ruler.
+
+   It lives inside @supports because outside it nothing is clipped and
+   shrinking the box would be a layout change for no reason.
+
+   THIS CLASS IS NOT THE ONLY CONSUMER OF --gradient-foil, and the other one
+   inverts both rules above on purpose:
+
+   .cf-btn--solid clips the lit half into its own label, automatically, with
+   no class to opt in. It is under no foil-moment budget, because there the
+   foil is the component's own colour — the way the light ramp is the primary
+   button's — rather than an emphasis applied to it. A 12 px mono label is not
+   competing with a display headline; three black buttons on a page are three
+   buttons. What the budget does still forbid is a foil HEADLINE and a black
+   button in one eyeful, because then the headline is no longer the only
+   iridescent thing on screen.
+
+   And it deliberately does NOT size its clip box to the text. That fix is
+   right for a headline in a block, where the box is the column and the ramp
+   dies a third of the way in; it would be wrong here. The button's gradient
+   box is the whole button ON PURPOSE, so the label takes the Weiss -> Glas ->
+   Sky leg and the arrow at the far right sits in Violett — light entering at
+   the first letter and arriving, coloured, at the arrow. Shrink that box to
+   the label and every button ramps the full spectrum inside ten characters,
+   which reads as a rainbow rather than as light crossing a plate. Do not
+   propagate fit-content to it.
+
+   See components.css, and foundations/colors.html for the table that governs
+   both.
+
+   The unenhanced state is the fallback: the element keeps its inherited
+   colour and nothing is clipped. Only inside @supports does the text go
+   transparent, so a browser without background-clip:text, a printer, and
+   Windows high-contrast all get solid, legible type — and so does a reader
+   who has asked for more contrast, which is the one door of the four that
+   a request opens rather than a limitation. See THE FOURTH DOOR below the
+   forced-colours block, and scripts/check-foil-doors.py, which holds every
+   clipping context to all three.
+   -------------------------------------------------------------------------- */
+.text-foil {
+  /* Declared here and not only in the @supports block below, so the modifier
+     can swap the ramp without either rule having to know about the other's
+     nesting or source order. An unresolvable var() in background-image is
+     guaranteed-invalid and would take the whole declaration with it, so the
+     rest value belongs on the class rather than in a var() fallback — the
+     same reasoning as --cf-specular on .cf-btn--glass.
+
+     What the modifier swaps is the RAMP, not the finished image. The image is
+     composed once, below, out of a ramp and an angle — see THE RAKE SWINGS. */
+  --foil-ramp: var(--foil-stops);
+  --foil-angle: var(--foil-rake);
+  --foil-image: linear-gradient(var(--foil-angle), var(--foil-ramp));
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.text-foil--ink { --foil-ramp: var(--foil-ink-stops); }
+
+/* The one place the oklab path has to be restated for these two, because the
+   image is composed here rather than at :root. Same reasoning as the block at
+   the foot of tokens.css: the stops do not move, only the path between them. */
+@supports (background: linear-gradient(in oklab, red, blue)) {
+  .text-foil { --foil-image: linear-gradient(var(--foil-angle) in oklab, var(--foil-ramp)); }
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .text-foil {
+    background-image: var(--foil-image);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  /* THE CLIP BOX, and it is a max-width rather than a width. width: auto
+     stays: the box fills its column and the cap pulls it back to the ink,
+     which is min(max-content, available) written as the one property that
+     cannot be cyclic. A `width` of any intrinsic keyword asks the box to
+     size itself from its own content, and a block whose content is being
+     rewritten — see the exclusion below — resolves that to nothing.
+
+     A STREAM-OWNED LINE IS EXCLUDED, and the exclusion is the same fact
+     .ex-step already reserves min-height for. cf-stream.js empties the
+     element it types into and refills it character by character, so the
+     element's max-content is the characters typed SO FAR: nothing at rest,
+     and growing while the reader scrolls. Capping the box at that makes the
+     box nothing at rest, and — if it were not nothing — would rescale the
+     ramp on every character, which is a foil re-lit letter by letter rather
+     than a plate the light crosses. Measured on expertise.html at 1280
+     without this clause: all four .cf-info-card__title boxes collapsed to
+     22 px and 0. The page reserves the block axis by hand for the same
+     reason; this reserves the inline one, in the class rather than on the
+     page, because it is a property of the mechanism and not of that act.
+
+     :has() and not a modifier class, because the condition is not knowable
+     when the markup is written: the same h3 is unstreamed until the script
+     runs, and correctly shrink-wrapped for as long as it is. */
+  .text-foil:not(:has(.cf-stream__text)) { max-width: max-content; }
+
+  /* AND THE EXCLUDED CASE IS CAPPED TOO, on a number it did not have to ask
+     itself for. The paragraph above is right that a rewritten element cannot
+     resolve its own max-content — and it left the four largest foil moments
+     in the system uncapped, which is the failure this whole block exists to
+     stop. Measured on expertise.html's rendered page: the four card titles
+     ink 136–406 px inside a 518 px box at 1280 and a 593 px one at 1920, so
+     "Maschinenbau" sampled 0.8–53.0 % of --gradient-foil-ink at 1280 and
+     0.5–46.2 % at 1920, "Flotten" 22.9 %, and Violett 800 — the far end of
+     the ramp, and the whole reason the foil is a foil — appeared on none of
+     them at either width.
+
+     cf-stream.js measures the element's real max-content BEFORE it empties
+     it and publishes it as --stream-inline, in em so it survives the type
+     moving; the caret is inside that measurement because it is inline-block
+     in the flow and a cap at the ink alone drops it to a second line. See
+     THE INLINE AXIS, MEASURED BEFORE IT IS TAKEN in that file for the
+     numbers and for why the measurement cannot be taken any later.
+
+     min(), so the cap is the same min(max-content, available) the rule above
+     resolves to — a reservation wider than the column must not widen the box.
+     The fallback is what makes this additive: with no script, no :has(), or a
+     line the stream never reached, --stream-inline is absent, min(100%, 100%)
+     is 100 %, and the box is exactly the box it is today. */
+  .text-foil:has(.cf-stream__text) {
+    max-width: min(var(--stream-inline, 100%), 100%);
+  }
+
+  /* NO ::selection RULE HERE, and its absence is the fix rather than an
+     omission. This class used to restate the global ::selection in full,
+     because that rule set `color` and not the fill. It states both now, so a
+     copy here would be three identical declarations whose only job was to be
+     kept in step with a rule twenty lines long that nothing checked. The one
+     that governs every clipping context is the one at ::selection. */
+}
+
+/* --------------------------------------------------------------------------
+   THE RAKE SWINGS
+   Holographic stock is not a picture of a spectrum. It is a surface that
+   hands you a different part of one from every angle, which is why a foil
+   catalogue is photographed tilting and a printed one looks dead. Static, the
+   foil above is the photograph. This is the tilt: the angle light crosses the
+   letterforms at opens by exactly one brand angle as the type travels up the
+   viewport, scrubbed from scroll position so it tracks the reader's hand and
+   runs backwards when they scroll back — the same commitment
+   foundations/motion.html already makes for everything else that moves.
+
+   THE CONTRAST FLOOR IS UNCHANGED BY CONSTRUCTION, and that is the whole
+   reason this is an angle and not a slide. No stop moves, no colour is added,
+   no layer is composited over the glyphs, and — the part that matters — the
+   entire ramp is still inside the box at every frame. Turning a linear
+   gradient changes WHERE each stop lands, never WHICH stops are present. So
+   the worst sample of the swinging foil is the worst sample of the static
+   one, which is the number tokens.css states: 11.9:1 for the lit half on
+   black, 5.24:1 for the ink half on CF-Grau. Nothing here needs
+   re-measuring, and that is a property of the mechanism rather than a lucky
+   result.
+
+   Two rejected alternatives, both of which would have needed re-measuring:
+
+     A specular band composited over the type. On the lit half it raises
+     contrast and on the ink half it lowers it — lightening dark letters on a
+     light page — so the ink foil would have had to be checked frame by frame
+     and would have failed somewhere.
+
+     The ramp painted wider than its clip box and slid across (background-size
+     over 100 % plus a background-position travel). Contrast survives that one
+     too, by the same argument, but iridescence does not: overscanning to 150 %
+     leaves the glyphs standing in two thirds of the ramp at any instant, so
+     the type reads as changing colour rather than as catching light. Measured
+     on the two pages that actually carry foil, it is also nearly a no-op —
+     both foil moments sit at a document extreme (a page header at the top, a
+     footer at the bottom), where a view() timeline has a quarter of its range
+     to work with. The Über uns title travelled from 74.6 % to 100 % of the
+     sweep and never showed the Glas end at all.
+
+   90° TO 116.57°, AND THE SWING IS ITSELF A BRAND ANGLE. Both endpoints are
+   sanctioned — 90° is the flat rake, 116.57° is 90° + 26.57° — and the
+   distance between them is 26.57°, the isometric angle itself. The swing
+   therefore cannot drift off the four permitted angles no matter where it is
+   stopped, because it is bounded by two of them.
+
+   It stays shallow throughout, and that is not a free choice: a headline is a
+   wide short box, and tokens.css records that at 132.36° the ramp completes
+   inside the first two or three letters, which is why the foil took the
+   shallow rake in the first place. A swing towards the steep angles would
+   have undone that decision every time the reader scrolled. 90° and 116.57°
+   both run the ramp along the line rather than down it.
+
+   116.57° IS WHAT YOU SEE HEAD-ON, which is the model the whole thing is
+   built on and the reason the swing turns round at the halfway mark rather
+   than running straight through. A sheet of foil looks different at an angle
+   because you are looking at it from one; you see the material as drawn when
+   you are square to it. Timeline 50 % is the type at the middle of the
+   viewport — square to the reader — so that is where the rake is the
+   designer's 116.57°. At either edge of the screen the line of sight is
+   oblique and the rake flattens to 90°. Run the swing straight through
+   instead and the type would be square to nobody at one end of its journey.
+
+   Wherever the swing cannot run — no @property, no scroll timeline, reduced
+   motion, print, forced colours — the rake is the documented 116.57°: the
+   head-on value, which is the right thing to fall back to.
+
+   ONE OF THE THREE FOIL MOMENTS FALLS SHORT OF HEAD-ON, AND IT IS THE PAGE
+   HEADER. This paragraph used to say "neither foil moment on the two designed
+   pages reaches head-on" and to argue against the fix; both halves of that
+   have been overtaken by what ships, so here is the census and the
+   measurement rather than the old pair.
+
+   There are 32 .text-foil elements across the 18 pattern pages, in three
+   kinds, and only the first still swings on the element's own view() that
+   this rule declares:
+
+     page header title   10 pages   view()                  (this rule)
+     footer title        18 pages   --cf-footer-arrival     components.css
+     info-card title      4 on one  --cf-pin                expertise.html
+
+   Measured at 1280 x 900 — the viewport the old table named — pointer at
+   rest, so --sight-h is 1 and the rake is --sight-v alone:
+
+     page header, Über uns     timeline 72.8 % -> 100 %   rake  99.50° -> 90°
+     page header, Expertise    timeline 74.6 % -> 100 %   rake 100.49° -> 90°
+     page header, News         timeline 74.6 % -> 100 %   rake 102.73° -> 90°
+     footer title, all 18      timeline    0 % -> 100 %   rake    90° -> 116.57°
+                                                       (116.54° worst of 18)
+     info-card titles, 4 of    timeline    0 % -> 100 %   rake    90° -> 116.22°
+                                                                  ... 116.52°
+
+   Same three at 1440 x 900 and 1280 x 800: the page headers open to between
+   99.85° and 104.20° and the other two reach 116.05° or better on all of
+   them. So the shortfall is the page header's alone, and it is the one this
+   note's reasoning was always about: it sits at the top of the document, its
+   view() range opens at roughly three quarters spent, and no scroll exists
+   that would carry it to the middle of the screen. A headline the reader
+   cannot bring to the centre of the screen is a headline they never look at
+   square on — that part stands. A foil moment the document can carry past the
+   middle of the screen gets the whole journey, which is what the other two
+   rows above are: neither is at a document extreme any more, because neither
+   is timed off its own position in the viewport.
+
+   WHAT CHANGED IS THE REJECTED ALTERNATIVE. This paragraph used to close on
+   "the alternative was a per-element animation-range, which would put the
+   footer on a different rule from every other foil moment". That alternative
+   has since shipped, twice, for reasons neither of which is cosmetic:
+
+     - components.css gives the footer .cf-footer's own --cf-footer-arrival
+       over `entry 0% entry 100%` with `view-timeline-inset: auto 0px`. Its
+       note there records what the default range cost: the swing stopped at
+       109.46° AND the invite never left its active phase, so :hover could
+       not move the CTA's specular. A per-element range was the fix for a
+       stuck control, not for a rake.
+     - expertise.html gives its card titles --cf-pin, because a title inside
+       a sticky-pinned stage has no view() pass of its own to swing on.
+
+   So a per-element range is now the house answer wherever the element's own
+   view() is the wrong clock, and the page header is simply not that case:
+   its view() is the right clock and the document is what is short. Leave it
+   on this rule. Anyone giving a fourth foil moment its own range should be
+   able to name which of those two faults they are fixing.
+
+   WHAT DOES NOT SWING: .cf-btn--solid. Its foil is the component's own
+   colour rather than an emphasis, its clip box is the whole button on
+   purpose, and a label whose light shifts while the reader is aiming at it is
+   a different thing from a headline catching it. It reads --gradient-foil
+   from :root, which is static, so it is untouched — do not propagate this to
+   it, for the same reason fit-content was not propagated to it.
+
+   --foil-angle is registered so it can interpolate at all: an unregistered
+   custom property has no type and jumps rather than travels. inherits: false
+   keeps the invalidation on the handful of .text-foil elements instead of
+   putting an animated inherited property on :root, which would restyle the
+   whole document once per frame. The rest value is declared on .text-foil
+   above as well as here, for the guaranteed-invalid reason written there.
+   Registration is also the safety net under the composition below: if that
+   calc ever fails to resolve, a registered property falls back to its
+   initial-value — the designer's 116.57° — instead of going
+   guaranteed-invalid and taking background-image, and with it the whole
+   clip, down with it.
+   -------------------------------------------------------------------------- */
+@property --foil-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 116.57deg;
+}
+
+/* --------------------------------------------------------------------------
+   THE LINE OF SIGHT
+   The swing above is built on a line-of-sight model and only ever read one of
+   its two axes. "116.57° is what you see head-on" assumes the reader's eye is
+   on the middle of the screen; a view() timeline then measures how far the
+   type is above or below that eye. Nothing measured how far it was to the
+   SIDE of it. On a 1920 frame a headline at the vertical centre and hard
+   against the left edge was drawn perfectly head-on, and it is not: the
+   reader is a metre to its right.
+
+   So the model gets its other axis. --sight-v is the vertical squareness the
+   keyframes already produced, now named: 0 at either edge of the viewport, 1
+   at the middle. --sight-h is the horizontal squareness, and it is the one
+   quantity on this page CSS cannot obtain — an element's own x is not the
+   reader's — so it is written by cf-sight.js, which is optional and additive
+   in the sense assets/js/cf-stream.js established. Both rest at 1.
+
+   THEY MULTIPLY, THEY DO NOT ADD, and that is the whole safety argument.
+   Summing two swings could leave the band; a product of two numbers in [0, 1]
+   cannot, so the rake stays inside 90°–116.57° by construction and every
+   contrast figure above holds unchanged and unre-measured. It is also the
+   physically true composition: a foil is head-on only when you are square to
+   it on BOTH axes, and oblique on either one flattens it. Being level with a
+   sheet you are standing beside does not let you see it face on.
+
+   THE SWING IS NOW WRITTEN AS A BRAND ANGLE INSTEAD OF ASSERTED AS ONE. The
+   prose above has always said the 26.57° between the endpoints is the
+   isometric angle itself; the keyframes said 90deg and 116.57deg and left
+   that a coincidence a later edit could break. --angle-square + --angle-b
+   times the two squarenesses is the same two endpoints, derived — move
+   --angle-b and the foil follows it.
+
+   WITHOUT THE SCRIPT NOTHING CHANGES, to the digit. --sight-h's initial-value
+   is 1, so the product collapses to --sight-v and the composition reduces to
+   the keyframes this block shipped before: 90° at the edges, 116.57° at the
+   middle. Reduced motion, no script, script blocked by consent, print and
+   forced colours all land there — and so does a phone whose orientation
+   sensor is behind a permission prompt or absent. A phone that can be read
+   without asking is the other source of the same number: the script takes
+   the tilt of the device in the hand as the reader's line of sight, with
+   --angle-a of tilt as the reach, so this rule has nothing to add for it.
+   Nothing here can tell which source wrote the value, which is the point.
+   -------------------------------------------------------------------------- */
+@property --sight-v {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+@property --sight-h {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) and (animation-timeline: view()) {
+  @media screen and (prefers-reduced-motion: no-preference) {
+    .text-foil {
+      --foil-angle: calc(var(--angle-square) + var(--angle-b) * var(--sight-v) * var(--sight-h));
+      animation: cf-foil-swing linear both;
+      animation-timeline: view();
+      /* Damping, for the reason .cf-ground--lit is damped: the hand is
+         continuous and the written value is quantised. */
+      transition: --sight-h var(--duration-fast) var(--ease-out);
+    }
+  }
+}
+@keyframes cf-foil-swing {
+  from { --sight-v: 0; }
+  50%  { --sight-v: 1; }
+  to   { --sight-v: 0; }
+}
+
+@media print {
+  .text-foil {
+    background: none;
+    color: var(--cf-schwarz);
+    -webkit-text-fill-color: var(--cf-schwarz);
+  }
+}
+@media (forced-colors: active) {
+  .text-foil {
+    background: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+}
+
+/* THE FOURTH DOOR, and the one a request opens rather than a limitation.
+   Paper cannot carry a background image, forced colours has a palette of its
+   own, and an engine without the clip never enters the enhanced block. None
+   of those is the reader asking for anything. prefers-contrast: more is —
+   and until this block existed nothing in the system answered it: not one
+   rule in the four shipping stylesheets read the query, so a reader who had
+   set it was handed exactly the page everyone else gets.
+
+   The foil is the right place to start because it is the one material here
+   that TRADES contrast for light on purpose. A ramp is a set of inks and its
+   floor is its lightest one; every stop clears AA and the ink half clears
+   AAA for large type, and that is the design, not a shortfall. Solid ink on
+   the same surface is one ink at the top of the range:
+
+                                  foil, worst stop     solid, --text-primary
+     .text-foil       on Schwarz      11.90:1               21.00:1
+     .text-foil--ink  on CF-Grau       5.24:1               13.48:1
+     .text-foil--ink  on Weiss         8.16:1               21.00:1
+
+   A request is answered in full or not at all — the sentence the
+   reduced-transparency block at the foot of tokens.css already lives by.
+   So the answer is not a darker foil. The 900 band would measure 10.2–11.8:1
+   on CF-Grau and would not be a foil: Glas 900 is C 0.0075, under the ~0.018
+   at which Chromium renders a stop's hue at all (see THE ARC in tokens.css),
+   so its first leg would ship flat. The answer is the solid ink the element
+   inherits from its surface. --text-primary and not --cf-schwarz, because
+   this door is open on both surfaces: it resolves to Weiss inside
+   data-theme="inverse" and to Schwarz outside, which is exactly the ink each
+   variant of the foil stands in for.
+
+   The swing on this class's own view() timeline stops with the image — not
+   because it would show, it turns an angle nothing is drawn at, but because
+   a scroll-scrubbed animation on a property nothing reads is work done for
+   no reader. A consumer that drives --sight-v on a timeline of its own keeps
+   doing so: .cf-footer__title scrubs it off the footer's arrival with an
+   animation-name longhand in components.css, which loads after this file
+   and wins at equal specificity. Measured under the setting, the title
+   renders solid Weiss with the keyframes still attached and nothing to
+   turn. That is that component's declaration to make, and it is left.
+
+   scripts/check-foil-doors.py holds this: every clipping context in the
+   shipping CSS hands its ink back at all three doors, in every state it
+   clips in, and a third context added later without them fails there rather
+   than in a screenshot nobody takes at this setting. */
+@media (prefers-contrast: more) {
+  .text-foil {
+    background: none;
+    color: var(--text-primary);
+    -webkit-text-fill-color: var(--text-primary);
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   LINE UTILITIES
+   CSS border-style can't express the brand's dash ratios, so lines are
+   drawn with repeating gradients instead.
+   -------------------------------------------------------------------------- */
+.rule {
+  height: var(--stroke-1);
+  background: var(--border-strong);
+  border: 0;
+}
+.rule--dashed-2-1 { background: repeating-linear-gradient(90deg, var(--border-strong) 0 4px, transparent 4px 6px); }
+.rule--dashed-1-2 { background: repeating-linear-gradient(90deg, var(--border-strong) 0 2px, transparent 2px 6px); }
+.rule--dashed-1-4 { background: repeating-linear-gradient(90deg, var(--border-strong) 0 1px, transparent 1px 5px); }
+.rule--muted      { opacity: 0.32; }
+.rule--2 { height: var(--stroke-2); }
+.rule--4 { height: var(--stroke-4); }
+.rule--8 { height: var(--stroke-8); }
+
+/* Every .rule is `border: 0` and painted entirely by background — a solid
+   colour for the plain rule, a repeating-linear-gradient for the three
+   dashed ones. Forced-colors mode drops both: background-color on a generic
+   box is not one of the properties it repaints, and background-image is
+   discarded outright (same reason .cf-nav::after and .material-glass-edge lose
+   theirs, see below and components.css). Nothing else on the box paints, so
+   the whole line disappears — confirmed on foundations/geometry.html#lines,
+   where all four demonstration swatches went blank.
+
+   Redrawn as a border, the one paint forced-colors keeps, on top since that
+   is the edge `height` already reserves. `border-top-width` is set to the
+   same stroke token that sizes the box, so the stroke-weight ladder
+   (.rule--2/4/8) still reads as a ladder instead of collapsing to one
+   thickness. The exact dash ratios are lost — border-style can't express
+   them, which is the reason this file gives above for using gradients in
+   the first place — but forced-colors is already allowed to drop that
+   register (.cf-annot-set does the same). Solid vs. some-dash vs.
+   finer-dash is preserved with dashed/dotted so the three still read as
+   distinct from each other and from the plain rule. */
+@media (forced-colors: active) {
+  .rule {
+    background: none;
+    border-top: var(--stroke-1) solid CanvasText;
+  }
+  .rule--2 { border-top-width: var(--stroke-2); }
+  .rule--4 { border-top-width: var(--stroke-4); }
+  .rule--8 { border-top-width: var(--stroke-8); }
+  .rule--dashed-2-1 { border-top-style: dashed; }
+  .rule--dashed-1-2,
+  .rule--dashed-1-4 { border-top-style: dotted; }
+}
+
+/* --------------------------------------------------------------------------
+   ISOMETRY
+   .iso puts a child into the 2:1 projection. .iso-scene gives a group of
+   them a shared origin so they stack like one object.
+   -------------------------------------------------------------------------- */
+.iso {
+  transform: var(--iso-transform);
+  transform-origin: center;
+}
+.iso-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+}
+.iso-scene > * { grid-area: 1 / 1; }
+
+/* --------------------------------------------------------------------------
+   THE SPRITE
+   Every page that draws an arrow opens with the same <svg> of <symbol>s, and
+   every <use> in the page points into it. It is markup that defines and never
+   renders, so it needs exactly one declaration — and until this class existed
+   all eleven pattern pages carried that declaration as style="display:none"
+   typed into the tag, which is the same rule written eleven times in the one
+   place no stylesheet can reach it.
+
+   `display: none` rather than the off-screen 1 px box .visually-hidden draws:
+   a <use> clones the referenced <symbol> into its own shadow tree, so the
+   source subtree never has to be rendered, or laid out, or in the
+   accessibility tree, for the arrows to appear. The clip-rect recipe below is
+   for content a screen reader must still announce, which is the opposite of
+   what a sprite is.
+   -------------------------------------------------------------------------- */
+.cf-sprite { display: none; }
+
+/* --------------------------------------------------------------------------
+   ACCESSIBILITY
+   -------------------------------------------------------------------------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link {
+  /* fixed, not absolute: an absolutely positioned element near the top of
+     the document is still inside the page's own box, so macOS Safari's
+     rubber-band overscroll bounce -- which reveals a sliver above the
+     document's normal top edge -- exposes it, translateY(-200%) and all.
+     Anchored to the viewport instead, it stays off-screen regardless of
+     scroll position or overscroll bounce. */
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-modal);
+  padding: var(--space-3) var(--space-4);
+  background: var(--cf-schwarz);
+  color: var(--grey-000);
+  transform: translateY(-200%);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+.skip-link:focus { transform: translateY(0); }
+
+/* --------------------------------------------------------------------------
+   PAGE TRANSITIONS — Kontur vor Fläche, spent on time instead of on a box
+
+   A static site normally navigates the way paper does: the sheet is thrown
+   away and another one is put down. That is the one thing this brand is not.
+   The site sits on a data space, and a space you move through does not blink.
+
+   So navigation is drawn rather than swapped. One edge at --angle-a crosses
+   the viewport left to right; the arriving page appears behind it; and the
+   light layer rides the edge itself — a 2 px contour filled with the foil,
+   drawn before the surface it encloses. That is the founding rule of the
+   shape language, applied to a moment rather than to an object.
+
+   The foil is a gradient across the whole viewport box and only 2 px of it
+   is ever visible at once, so the line changes hue as it travels — lime at
+   the left edge of the screen, Violett by the right. It is the one place in
+   the system where you see the foil the way you see a real foil: by moving
+   past it.
+
+   Everything here is progressive enhancement, in three layers:
+     · no support (Firefox today, Safari < 18.2) — the at-rule and the
+       pseudo-element rules are both unknown, so navigation stays instant.
+     · prefers-reduced-motion: reduce — the opt-in never applies, so there is
+       no transition to shorten. A wipe has no useful 1 ms version.
+     · a slow response — the browser abandons the transition after 4 s from
+       navigation start and navigates plainly. Nothing to handle.
+
+   Named elements are lifted out of the root snapshot and animate on their
+   own, which for identical chrome means they hold perfectly still. They are
+   named with a `body >` combinator on purpose: a view-transition-name has to
+   be unique in the document, and components/navigation.html and
+   components/footer.html each show a specimen of one. The combinator is the
+   line between the page's own chrome and a specimen of it — the specimen
+   sits inside .docs-demo and travels with the page like any other content.
+   → foundations/transitions.html
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+}
+
+/* THE BAR ITSELF CANNOT CARRY THE NAME, and this cost a working material to
+   learn. A view-transition-name makes its element a BACKDROP ROOT, and a
+   backdrop-filter only samples what is painted below it inside its own
+   backdrop root — so naming .cf-nav left .cf-nav::before with an empty
+   backdrop and the navigation's glass stopped blurring anything, on every
+   page, at all times. Measured on the landing page with a 6 px stripe behind
+   the bar: 15.99 mean gradient inside the bar against 16.07 on the bare
+   artwork, i.e. no blur at all; with the name removed, 4.83. A transient
+   benefit for a permanent one is the wrong trade.
+
+   The two plates carry it instead. They are what the eye tracks as the bar
+   holds still — black rectangles with hard edges — and they contain no
+   frosted surface, so naming them costs nothing. The sheet stays in the root
+   snapshot, where its backdrop is the page and its blur is live. The toggle
+   is named for the same reason on the phone layout, where it is the chrome
+   that survives.
+
+   The footer is opaque and has no backdrop-filter anywhere in it, so it
+   keeps the name on the component itself. */
+body > .cf-nav .cf-logo     { view-transition-name: cf-nav-logo; }
+body > .cf-nav .cf-nav__list { view-transition-name: cf-nav-links; }
+body > .cf-nav .cf-nav__toggle { view-transition-name: cf-nav-toggle; }
+body > .cf-footer { view-transition-name: cf-footer; }
+
+@media (max-width: 48.75rem) {
+  body > .cf-nav .cf-nav__list { view-transition-name: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The UA default is mix-blend-mode: plus-lighter, which is correct for the
+     cross-fade it ships with and wrong for a wipe: under a cross-fade the two
+     snapshots are complementary at every pixel, under a wipe they are both
+     fully opaque wherever they overlap, and plus-lighter adds two opaque
+     pages to white. Reset it before touching anything else. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    mix-blend-mode: normal;
+    animation: none;
+  }
+
+  /* The light layer, seen through the gap. The group is an ancestor box of
+     both snapshots and paints behind them, so it shows only in the 2 px band
+     where the outgoing page has already been cut away and the incoming one
+     has not yet arrived. */
+  ::view-transition-group(root) { background: var(--gradient-foil); }
+
+  ::view-transition-old(root) {
+    animation: cf-rake-out var(--duration-slow) var(--ease-out) both;
+  }
+  ::view-transition-new(root) {
+    animation: cf-rake-in var(--duration-slow) var(--ease-out) both;
+  }
+}
+
+/* Both keyframes describe the same parallelogram — an edge at --angle-a, so
+   --angle-a-run of horizontal travel across the viewport's height — sliding
+   from one side to the other. The incoming page keeps what is behind the
+   edge; the outgoing page keeps what is ahead of it, --stroke-2 further on,
+   and that offset is the contour. */
+@keyframes cf-rake-in {
+  from { clip-path: polygon(0 0, 0 0, calc(-1 * var(--angle-a-run)) 100%, 0 100%); }
+  to   { clip-path: polygon(0 0, calc(100% + var(--angle-a-run)) 0, 100% 100%, 0 100%); }
+}
+@keyframes cf-rake-out {
+  from {
+    clip-path: polygon(var(--stroke-2) 0, 100% 0, 100% 100%,
+                       calc(var(--stroke-2) - var(--angle-a-run)) 100%);
+  }
+  to {
+    clip-path: polygon(calc(100% + var(--stroke-2) + var(--angle-a-run)) 0, 100% 0, 100% 100%,
+                       calc(100% + var(--stroke-2)) 100%);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   THE SHEET — what this system is on paper
+
+   The brand's founding sentence is that the site sits on a data space and not
+   on a sheet of paper. Printed, it becomes the one thing it said it was not,
+   and until this section the system had never decided what it is there. It had
+   decided it twenty times instead — twenty `@media print` blocks across
+   base.css, components.css and acts.css, each correct about its own object and
+   not one of them about the SHEET. Counted on the tree this section was written
+   against, 28 558 lines of stylesheet contained no `@page`, no `break-inside`,
+   no `break-after`, no `orphans` and no `widows`. Every sheet boundary in the
+   site therefore fell wherever the flow happened to be.
+
+   THE LAW, and it is one sentence: PAPER CARRIES TWO OF THE SIX LAYERS.
+   foundations/materials.html stacks the system back to front as base wash,
+   opaque, frosted glass, contour, light, text. A sheet holds the last two of
+   those and nothing else — CONTOUR AND TEXT. Not the wash, because a wash is a
+   ground and paper already has one. Not the glass, because a frosted surface is
+   a thing you see THROUGH and there is nothing behind a sheet. Not the light,
+   because lime on white is 1.1:1 and the light layer was never a surface. Not
+   the opaque plate, because a black plate is the reader's ink and the brand
+   does not get to spend it. The system's own drawings had each reached this
+   conclusion one object at a time; this is the sentence they were halves of.
+
+   THE SECOND CLAUSE follows from the first and was already lived: INK IS DATA
+   OR IT IS NOTHING. Every browser's print dialog ships "Background graphics"
+   off, so a background is a request rather than a fact, and no rule in this
+   system asks for it back — .cf-block says it in its own words in
+   components.css, "a chart that demands ink to be readable is a chart that is
+   not readable", which is why `print-color-adjust: exact` appears nowhere. What
+   prints is the drawing, the scale and the keys. What a colour was carrying, a
+   line carries: the same trade every `forced-colors` rule here makes, paid to a
+   different reader.
+
+   THE THIRD CLAUSE is the one nothing had made: A COMPONENT CANNOT KNOW IT IS
+   BEING CUT. Fragmentation is a property of the sheet and not of the object
+   standing on it — a job card is not divided because of anything the card says,
+   it is divided because it began 40 mm from the bottom of a page. So the rule
+   is one rule: NOTHING DRAWN AS ONE OBJECT MAY BE DIVIDED BY A SHEET BOUNDARY.
+
+   AND IT IS WRITTEN IN TWO PLACES, WHICH IS A CASCADE FACT AND NOT A SECOND
+   OPINION. This file is loaded before components.css, so a `display: none` here
+   for .cf-nav loses to the `display: flex` there at equal specificity — written
+   in this file it is not a decision, it is a comment. What belongs here is
+   everything whose selector this file owns: the page box, the container, the
+   ground, the headings, the paragraphs, the table's own row and head. The
+   register of components — what is withdrawn and what may not be cut — is at
+   the foot of components.css, where it can win.
+
+   → foundations/print.html
+   -------------------------------------------------------------------------- */
+
+@page {
+  /* Millimetres, because the two papers this will meet disagree about inches:
+     A4 is 210 x 297 mm and US Letter 216 x 279, so a margin written in mm is
+     the same margin on both and a margin written in `in` is not. 14 mm at the
+     sides leaves 182 mm of measure on A4 and 188 on Letter; 16 mm head and foot
+     is the band a hand holds a sheet by without covering a line.
+
+     UNTIL THIS RULE THERE WAS NO PAGE MARGIN OF THE SYSTEM'S OWN — only the
+     browser's default, and then --gutter on top of it, which is a clamp that
+     reaches 5rem and was measured against a viewport rather than a sheet. The
+     two stacked to about 33 mm a side against Chromium's default. .container
+     gives its padding up below: the page box holds the margin now, and two
+     boxes holding one margin is how it got to 33. */
+  margin: 16mm 14mm;
+}
+
+@media print {
+  .container { padding-inline: 0; }
+
+  /* THE GROUND. Two layers, and the site had neither of them withdrawn. `body`
+     carries --surface-base, which is CF-Grau — the data space itself, as a flat
+     fill behind every sheet. .page-wash carries the ramp and --grain over it,
+     and the forced-colours rule 700 lines up has already measured why that one
+     needs saying out loud: --grain is a data-URI SVG, and a url() layer beside
+     a gradient carries the gradient through filters that drop a gradient on its
+     own. So the reader who ticks "Background graphics" — the single tick that
+     exists, and the one a reader ticks when they want a figure to keep its
+     colour — was buying the full CF-Grau ramp and 8 % greyscale noise flooded
+     across every sheet with it. The ground is the paper. */
+  body { background: none; }
+  .page-wash { background-image: none; }
+
+  /* Already off the page box under its own transform. Named so that the list of
+     what a sheet does not carry is the list. */
+  .skip-link { display: none; }
+
+  /* A HEADING IS NOT A LINE, IT IS THE TOP OF THE THING UNDER IT. Left alone,
+     the last thing on a sheet is regularly a section number and its title with
+     the section itself overleaf, which reads as a heading for nothing. */
+  h1, h2, h3, h4, h5, h6,
+  figcaption { break-after: avoid; }
+
+  /* One line of a paragraph, alone at the foot or the head of a sheet. Three
+     and three rather than the CSS initial of two and two: at
+     --leading-relaxed a two-line remainder still reads as a stray. */
+  p, li, blockquote, dd, figcaption { orphans: 3; widows: 3; }
+
+  /* A figure is its drawing and its caption, and a table row is one record.
+     Neither survives being halved. The table itself is deliberately absent from
+     this list — a table is not one object, it is a stack of rows, and it is
+     free to run over as many sheets as it needs. */
+  figure,
+  tr { break-inside: avoid; }
+
+  /* WHICH IS ONLY TRUE IF IT TAKES ITS HEAD WITH IT. A table that crosses a
+     sheet boundary otherwise leaves the reader a grid of numbers with nothing
+     saying which column is which. `table-header-group` is the one declaration
+     that repeats the head on every sheet the table reaches — and it is why the
+     head row was given `white-space: normal` in print over in components.css:
+     a repeated head is a head that has to fit more than once. */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+}
