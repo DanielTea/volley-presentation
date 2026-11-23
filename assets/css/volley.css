@@ -9,35 +9,81 @@
 .vo-note { margin-top: var(--space-4); font-size: var(--text-md); color: var(--text-secondary); }
 .vo-note a, .vo-fig__cap a { color: inherit; }
 
-/* ------------------------------------------------------------------ nav */
-.cf-nav__lang { white-space: nowrap; }
-@media (max-width: 30rem) { .cf-nav__lang { display: none; } }
+.vo-nowrap { white-space: nowrap; }
+@media (max-width: 40rem) { .vo-hide-s { display: none; } }
 
-/* ------------------------------------------------------------------ hero */
-.vo-hero .cf-hero__media { background: transparent; }
-.vo-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; }
-.vo-hero__body { max-width: min(40rem, 100%); }
-.vo-hero__eyebrow { margin-bottom: var(--space-6); color: var(--text-secondary); }
-.vo-hero__lede { margin-top: var(--space-6); max-width: 34rem; font-size: var(--text-lg); font-weight: var(--weight-light); line-height: var(--leading-relaxed); color: var(--text-secondary); }
-@media (max-width: 64rem) {
-  .vo-hero-art { opacity: .45; }
+/* ------------------------------------------------------------------ page rhythm
+   The landing page's own section rule reads --space-10, which the tokens do not define, so below 64rem a
+   section had no padding at all and ran into the next. The page sets its own, and lands an anchor clear of
+   the floating bar. */
+.v2-section,
+main > section { padding-block: clamp(var(--space-12), 2rem + 3.4vw, var(--space-20)); }
+main > section[id] { scroll-margin-top: var(--space-2); }
+main > section:last-of-type { padding-bottom: clamp(var(--space-16), 3rem + 4vw, var(--space-24)); }
+.vo-figures { padding-block: var(--space-6) var(--space-12); }
+
+/* ------------------------------------------------------------------ nav
+   Six links and the fair's badge: between the fold of the bar and a wide screen they keep to one row. */
+.cf-nav__lang { white-space: nowrap; }
+@media (max-width: 62rem) { .cf-nav__lang { display: none; } }
+@media (min-width: 48.76rem) and (max-width: 70rem) {
+  .cf-nav--v2 .cf-nav__bar { gap: var(--space-2); }
+  .cf-nav--v2 .cf-nav__link { padding-inline: var(--space-3); }
+}
+@media (min-width: 48.76rem) and (max-width: 56rem) {
+  .cf-nav--v2 .cf-nav__link { padding-inline: var(--space-2); }
 }
 
-/* hero art: a 2:1 isometric stack of the eleven levels over one capsule */
-.ha-plane { fill: rgba(255, 255, 255, 0.16); stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-opacity: 0.55; transition: transform var(--duration-slow) var(--ease-standard), stroke-opacity var(--duration-base) var(--ease-standard); }
-.ha-plane.is-lit { fill: url(#voLight); stroke-opacity: 1; transform: translateY(-14px); }
-.ha-capsule { fill: rgba(255, 255, 255, 0.5); stroke: var(--cf-schwarz); stroke-width: 0.7; }
-.ha-lattice { stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-opacity: 0.35; fill: none; }
-.ha-strut { stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-dasharray: var(--dash-1-4); fill: none; }
+/* ------------------------------------------------------------------ hero
+   The copy and the drawing share one grid: the copy takes the width of its longest line and stands at the
+   foot of the hero, the drawing takes the rest and stops above the action. Below 56.25rem, where the design
+   system lets the action flow under the copy, the drawing stands above the copy. */
+.vo-hero__grid { position: relative; z-index: 1; flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); column-gap: var(--space-8); align-items: end; }
+.vo-hero__body { max-width: min(40rem, 100%); }
+.vo-hero .cf-hero__title { font-size: clamp(calc(var(--text-lg) * 2.6), 5.1vw, calc(var(--text-lg) * 3.8)) !important; }
+.vo-hero__eyebrow { margin-bottom: var(--space-6); color: var(--text-secondary); }
+.vo-hero__lede { margin-top: var(--space-6); max-width: 34rem; font-size: var(--text-lg); font-weight: var(--weight-light); line-height: var(--leading-relaxed); color: var(--text-secondary); }
+.vo-hero__art { position: relative; align-self: stretch; min-width: 0; min-height: 0; margin-bottom: calc(3rem + var(--space-6)); }
+.vo-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+@media (max-width: 56.25rem) {
+  .vo-hero__grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(clamp(9.5rem, 30svh, 24rem), 1fr) auto; row-gap: var(--space-6); }
+  .vo-hero__art { order: -1; margin-bottom: 0; max-height: 24rem; }
+  .vo-hero .cf-hero__title { font-size: clamp(calc(var(--text-lg) * 1.85), 8.3vw, calc(var(--text-lg) * 3.4)) !important; }
+}
+
+/* hero art: ink contours, 2:1 isometry, one lit level */
+.ha-ground path { fill: none; stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-opacity: 0.17; }
+.ha-quiet { fill: none; stroke: var(--cf-schwarz); stroke-width: 0.8; stroke-dasharray: 1 4; stroke-linecap: round; }
+.ha-face { stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-linejoin: round; }
+.ha-face--left { fill: var(--grey-200); }
+.ha-face--right { fill: var(--grey-300); }
+.ha-top { fill: var(--grey-050); stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-linejoin: round; }
+.ha-cell { fill: var(--cf-schwarz); fill-opacity: 0; transition: fill-opacity var(--duration-slow) var(--ease-standard); }
+.ha-lattice { fill: none; stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-opacity: 0.2; }
+.ha-strut { fill: none; stroke: var(--cf-schwarz); stroke-width: 0.8; stroke-dasharray: 1 4; stroke-linecap: round; }
+.ha-level { transition: transform var(--duration-slow) var(--ease-reveal); }
+.ha-plane { fill: rgba(255, 255, 255, 0.24); stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-opacity: 0.5; stroke-linejoin: round; transition: stroke-opacity var(--duration-base) var(--ease-standard); }
+.ha-glow { fill: url(#voGlow); opacity: 0; transition: opacity var(--duration-slow) var(--ease-standard); pointer-events: none; }
 .ha-node { fill: var(--cf-schwarz); }
-.ha-wave { fill: none; stroke: var(--cf-schwarz); stroke-width: 0.9; stroke-linejoin: round; }
-.ha-wave--faint { stroke-opacity: 0.45; stroke-dasharray: var(--dash-2-1); }
+.ha-corner { opacity: 0; }
+.ha-level.is-lit { transform: translateY(-12px); }
+.ha-level.is-lit .ha-plane { fill: url(#voLight); stroke-opacity: 1; }
+.ha-level.is-lit .ha-glow { opacity: 0.7; }
+.ha-level.is-lit .ha-corner { opacity: 1; }
+.ha-wave { fill: none; stroke: var(--cf-schwarz); stroke-width: 0.9; stroke-linejoin: round; stroke-linecap: round; }
+.ha-wave--quiet { stroke-dasharray: var(--dash-2-1); stroke-opacity: 0.7; }
 .ha-spike { fill: var(--cf-schwarz); }
 .ha-label { font-family: var(--font-mono); font-size: 11px; font-weight: var(--weight-medium); letter-spacing: var(--tracking-label); text-transform: uppercase; fill: var(--text-primary); }
 .ha-label--muted { fill: var(--text-secondary); }
-.ha-rule { stroke: var(--cf-schwarz); stroke-width: 0.7; }
-.ha-quote { font-family: var(--font-mono); font-size: 11px; fill: var(--text-secondary); }
-@media (prefers-reduced-motion: reduce) { .ha-plane.is-lit { transform: none; } }
+.ha-rule { fill: none; stroke: var(--cf-schwarz); stroke-width: 0.7; }
+@media (prefers-reduced-motion: no-preference) {
+  /* An object made of parts is assembled, not delivered: the levels rise into place once, lowest first. */
+  .vo-hero-art.is-building .ha-level { animation: ha-rise var(--duration-slow) var(--ease-reveal) backwards; animation-delay: calc(var(--k) * 60ms + 200ms); }
+  .vo-hero-art.is-building .ha-note { animation: ha-show var(--duration-slow) var(--ease-standard) backwards; animation-delay: 1100ms; }
+}
+@keyframes ha-rise { from { opacity: 0; transform: translateY(44px); } }
+@keyframes ha-show { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ha-level.is-lit { transform: none; } }
 
 /* ------------------------------------------------------------------ hairline grids */
 .vo-grid { display: grid; border: var(--stroke-1) solid var(--veil-ink-25); list-style: none; margin: 0; padding: 0; }
@@ -49,10 +95,15 @@
 .vo-cell p { margin: 0; color: var(--text-secondary); font-size: var(--text-md); line-height: var(--leading-relaxed); }
 @media (max-width: 64rem) {
   .vo-grid--4, .vo-grid--5, .vo-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* five cells in two columns: the fifth closes the block across both, not beside a hole */
+  .vo-grid--5 > .vo-cell:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 @media (max-width: 40rem) {
   .vo-grid--4, .vo-grid--5, .vo-grid--3 { grid-template-columns: minmax(0, 1fr); }
   .vo-cell { padding: var(--space-5); }
+  /* four figures read as a two-by-two block on a phone, not as a column four screens long */
+  .vo-figures .vo-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vo-figures .vo-cell { padding: var(--space-4); }
 }
 
 .vo-stat dd { margin: 0; display: flex; flex-direction: column; gap: var(--space-1); }
@@ -67,10 +118,16 @@
 .vo-split { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--space-8) var(--space-16); align-items: start; }
 .vo-split__body p { margin: 0 0 var(--space-3); color: var(--text-secondary); }
 @media (max-width: 52rem) { .vo-split { grid-template-columns: minmax(0, 1fr); } }
-.vo-volley { width: 100%; height: auto; margin-top: var(--space-8); overflow: visible; }
-.vo-volley__wave { fill: none; stroke: var(--cf-schwarz); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.vo-volley line { stroke: var(--cf-schwarz); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.vo-volley .row-base { stroke-width: 0.7; stroke-opacity: 0.35; stroke-dasharray: 1 4; }
+/* the volley principle: a signal, four neurons that fire in turn, and the row where their spikes stand together */
+.vo-volley { position: relative; width: 100%; height: 13.75rem; margin-top: var(--space-12); }
+.vo-volley svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.vv-wave { fill: none; stroke: var(--cf-schwarz); stroke-width: 1.2; stroke-linejoin: round; }
+.vv-base,
+.vv-strut { stroke: var(--cf-schwarz); stroke-width: 0.8; stroke-opacity: 0.4; stroke-dasharray: 1 4; stroke-linecap: round; }
+.vv-sum { stroke: var(--border-strong); stroke-width: 1; }
+.vv-spike { stroke: var(--cf-schwarz); stroke-width: 1.5; transition: stroke-width var(--duration-fast) var(--ease-standard); }
+.vv-spike--sum { stroke-width: 2; }
+.vv-spike.is-hot { stroke-width: 3.5; }
 
 /* tags: a mono label with its rung in front — solid measured, dashed new, dotted design */
 .vo-keyline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-6); margin: 0; }
@@ -89,40 +146,65 @@
 .vo-found--current { background: var(--found-light); color: var(--found-ink); }
 
 /* ------------------------------------------------------------------ architecture */
-.vo-arch { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(17rem, 1fr); border: var(--stroke-1) solid var(--veil-ink-25); }
+.vo-arch { display: grid; grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); border: var(--stroke-1) solid var(--veil-ink-25); }
 .vo-arch > * { min-width: 0; }
-.vo-arch__figure { margin: 0; padding: var(--space-6); border-right: var(--stroke-1) solid var(--veil-ink-25); background-image: linear-gradient(var(--veil-ink-5) 1px, transparent 1px), linear-gradient(90deg, var(--veil-ink-5) 1px, transparent 1px); background-size: 24px 24px; }
-.vo-arch__scroll { overflow-x: auto; }
+.vo-arch__figure { margin: 0; padding: var(--space-6); border-right: var(--stroke-1) solid var(--veil-ink-25); background-image: linear-gradient(var(--veil-ink-5) 1px, transparent 1px), linear-gradient(90deg, var(--veil-ink-5) 1px, transparent 1px); background-size: 24px 24px; display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-4); }
+.vo-arch__scroll { --fade-start: 0px; --fade-end: 0px; overflow-x: auto; scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent); }
+.vo-arch__scroll[data-more~="start"] { --fade-start: 2rem; }
+.vo-arch__scroll[data-more~="end"] { --fade-end: 2rem; }
 .vo-arch-svg { width: 100%; height: auto; display: block; }
-.vo-arch__caption { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; padding-top: var(--space-4); font-size: var(--text-md); color: var(--text-secondary); }
-.vo-arch__panel { padding: var(--space-8) var(--space-6); background: var(--surface-glass); }
-.vo-arch__panel p { color: var(--text-secondary); font-size: var(--text-md); line-height: var(--leading-relaxed); margin: 0 0 var(--space-4); }
+/* the drawing stands in the middle of the height the panel beside it gives the figure; the caption closes the figure */
+.vo-arch__scroll { margin-block: auto; }
+.vo-arch__caption { display: flex; align-items: center; gap: var(--space-4) var(--space-6); flex-wrap: wrap; font-size: var(--text-md); color: var(--text-secondary); }
+.vo-arch__caption > span { flex: 1 1 18rem; max-width: 34rem; }
+.vo-arch__panel { position: relative; padding: var(--space-8) var(--space-6); background: var(--surface-glass); display: flex; flex-direction: column; }
+.vo-arch__panel p { margin: 0; }
+.vo-panel__body { color: var(--text-secondary); font-size: var(--text-md); line-height: var(--leading-relaxed); margin-bottom: var(--space-4) !important; }
 .vo-panel__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: var(--stroke-1) solid var(--border-strong); margin-bottom: var(--space-6) !important; }
 .vo-panel__title { font-size: var(--text-h3); font-weight: var(--weight-medium); line-height: var(--leading-snug); margin: 0 0 var(--space-4); }
-.vo-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); margin: var(--space-6) 0 0; border-top: var(--stroke-1) solid var(--veil-ink-25); }
+.vo-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); margin: var(--space-2) 0 0; border-top: var(--stroke-1) solid var(--veil-ink-25); }
 .vo-facts dt, .vo-facts dd { margin: 0; padding: var(--space-3) 0; border-bottom: var(--stroke-1) solid var(--veil-ink-12); }
-.vo-facts dt { font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-secondary); padding-right: var(--space-4); }
+.vo-facts dt { font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-secondary); padding-right: var(--space-4); max-width: 9.5rem; }
 .vo-facts dd { font-size: var(--text-md); }
-.vo-arch__panel.is-swapping > * { animation: vo-in var(--duration-slow) var(--ease-reveal) both; }
+.vo-arch__panel.is-swapping .vo-panel__content > * { animation: vo-in var(--duration-slow) var(--ease-reveal) both; }
 @keyframes vo-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .vo-btn-sm { min-height: 2.5rem; padding: var(--space-2) var(--space-3); gap: var(--space-4); }
+/* a ghost button small enough to sit on a label's line */
+.cf-btn.vo-btn-xs { font-size: var(--text-xs); letter-spacing: var(--tracking-label); gap: var(--space-2); }
+.cf-btn--ghost.vo-btn-xs { padding-block: var(--space-1); }
+.cf-btn--ghost.vo-btn-xs:is(:hover, :focus-visible) { padding-bottom: calc(var(--space-1) - var(--stroke-1)); }
+/* every part by name: the list picks a part as the drawing does, and on a phone it is the way around the drawing */
+.vo-parts { margin-top: auto; padding-top: var(--space-8); }
+.vo-parts > .t-label { margin: 0 0 var(--space-3); color: var(--text-secondary); }
+.vo-parts__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-4); border-top: var(--stroke-1) solid var(--veil-ink-25); }
+.vo-parts__list li { border-bottom: var(--stroke-1) solid var(--veil-ink-12); }
+.vo-part { display: flex; align-items: baseline; gap: var(--space-2); width: 100%; min-height: 2.25rem; padding: var(--space-2) 0; background: none; border: 0; border-radius: 0; cursor: pointer; text-align: left; font: inherit; font-size: var(--text-md); line-height: var(--leading-normal); color: var(--text-secondary); }
+.vo-part__n { flex: none; font-family: var(--font-mono); font-size: var(--text-xs); font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.vo-part:hover { color: var(--text-primary); }
+.vo-part:focus-visible { outline: var(--stroke-2) solid var(--focus-ring); outline-offset: 2px; }
+.vo-part[aria-pressed="true"] { color: var(--text-primary); }
+.vo-part[aria-pressed="true"] .vo-part__name { text-decoration: underline; text-decoration-thickness: var(--found-rule-weight); text-underline-offset: var(--found-offset); }
+.vo-part[aria-pressed="true"] .vo-part__n { color: var(--text-primary); }
 @media (max-width: 64rem) {
   .vo-arch { grid-template-columns: minmax(0, 1fr); }
   .vo-arch__figure { border-right: 0; border-bottom: var(--stroke-1) solid var(--veil-ink-25); padding: var(--space-4); }
+  .vo-parts { margin-top: 0; }
 }
 @media (max-width: 45rem) {
-  .vo-arch-svg { min-width: 42rem; }
-  .vo-arch__caption::before { content: "Swipe the diagram sideways to see all of it."; display: block; width: 100%; font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; }
+  .vo-arch-svg { width: 46rem; max-width: none; }
+  .vo-arch__panel { padding: var(--space-6) var(--space-4); }
 }
 
 /* svg parts: contour drawing, one lit part */
 .vo-arch-svg text { font-family: var(--font-sans); }
-.vo-arch-svg .t-title { font-size: 15px; font-weight: var(--weight-medium); fill: var(--text-primary); }
-.vo-arch-svg .t-sub { font-size: 13.5px; font-weight: var(--weight-medium); fill: var(--text-primary); }
-.vo-arch-svg .t-mono { font-family: var(--font-mono); font-size: 9.5px; font-weight: var(--weight-medium); letter-spacing: 0.02em; fill: var(--text-secondary); }
+.vo-arch-svg .t-title { font-size: 15.5px; font-weight: var(--weight-medium); fill: var(--text-primary); }
+.vo-arch-svg .t-sub { font-size: 14px; font-weight: var(--weight-medium); fill: var(--text-primary); }
+.vo-arch-svg .t-mono { font-family: var(--font-mono); font-size: 10.5px; font-weight: var(--weight-medium); letter-spacing: 0.01em; fill: var(--text-secondary); }
 .vo-arch-svg .t-strong { fill: var(--text-primary); }
-.vo-arch-svg .t-quote { font-family: var(--font-mono); font-size: 10px; fill: var(--text-primary); }
-.vo-arch-svg .t-vert { font-family: var(--font-mono); font-size: 9.5px; font-weight: var(--weight-medium); letter-spacing: 0.12em; fill: var(--text-primary); }
+.vo-arch-svg .t-quote { font-family: var(--font-mono); font-size: 10.5px; fill: var(--text-primary); }
+.vo-arch-svg .t-vert { font-family: var(--font-mono); font-size: 10.5px; font-weight: var(--weight-medium); letter-spacing: 0.12em; fill: var(--text-primary); }
 .part { cursor: pointer; outline: none; }
 .part > rect:first-child { fill: var(--cf-weiss); stroke: var(--cf-schwarz); stroke-width: 0.7; stroke-opacity: 0.55; transition: stroke-opacity var(--duration-fast) var(--ease-standard); }
 .part--new > rect:first-child { stroke-dasharray: 4 2; }
@@ -153,6 +235,11 @@
 @media (prefers-reduced-motion: reduce) { .spikes { display: none; } }
 
 .vo-timescales p strong { color: var(--text-primary); font-weight: var(--weight-medium); }
+/* the rule under each label is as long as the memory lasts: a quarter, a half, three quarters, the whole cell */
+.vo-timescales .vo-rung { width: 100%; }
+.vo-timescales .vo-cell:nth-child(1) .vo-rung { width: 25%; }
+.vo-timescales .vo-cell:nth-child(2) .vo-rung { width: 50%; }
+.vo-timescales .vo-cell:nth-child(3) .vo-rung { width: 75%; }
 
 /* ------------------------------------------------------------------ cards */
 .vo-card { gap: var(--space-3); }
@@ -212,8 +299,21 @@
 .vo-slider__note.is-warn { color: var(--feedback-error); }
 
 .vo-table th[scope="row"] { font-weight: var(--weight-medium); white-space: nowrap; }
+.vo-table td { color: var(--text-secondary); }
 .vo-table td:last-child { color: var(--text-primary); }
+.vo-table thead th { color: var(--text-secondary); }
 .vo-table thead th:last-child { color: var(--text-primary); }
+/* Three columns do not fit a phone, and the third was cut off at its edge. Below 40rem every row is a block:
+   its property as a label, and its two answers each named beside them. */
+@media (max-width: 40rem) {
+  .vo-table, .vo-table tbody, .vo-table tr, .vo-table th, .vo-table td { display: block; }
+  .vo-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .vo-table tr { padding: var(--space-4) 0; border-bottom: var(--stroke-1) solid var(--veil-ink-25); }
+  .vo-table :is(th, td) { padding: 0; border-bottom: 0; }
+  .vo-table th[scope="row"] { white-space: normal; margin-bottom: var(--space-3); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+  .vo-table td { display: grid; grid-template-columns: 6.25rem minmax(0, 1fr); column-gap: var(--space-3); padding-block: var(--space-1); }
+  .vo-table td::before { content: attr(data-label); padding-top: 0.25em; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-secondary); }
+}
 
 /* ------------------------------------------------------------------ industrial */
 .vo-loop .vo-card__title { margin-top: var(--space-2); }
@@ -232,14 +332,17 @@
 @media (max-width: 30rem) { .vo-fleet__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .vo-asks__list { list-style: none; margin: 0 0 var(--space-6); padding: 0; border-top: var(--stroke-1) solid var(--veil-ink-25); }
 .vo-asks__list li { padding: var(--space-3) 0; border-bottom: var(--stroke-1) solid var(--veil-ink-25); font-size: var(--text-lg); }
-.vo-usecases { color: var(--text-secondary); line-height: 2; }
+.vo-usecases { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
+.vo-usecases span { padding: var(--space-1) var(--space-3); border: var(--stroke-1) solid var(--veil-ink-25); border-radius: var(--radius-sm); color: var(--text-secondary); white-space: nowrap; }
 
 /* ------------------------------------------------------------------ console */
 .vo-note-block { max-width: 46rem; padding-top: var(--space-3); border-top: var(--stroke-1) solid var(--border-strong); display: flex; flex-direction: column; gap: var(--space-2); }
-.vo-note-block p { margin: 0; font-size: var(--text-md); color: var(--text-secondary); }
+.vo-note-block p { margin: 0; }
+.vo-note-block p:not(.t-label) { font-size: var(--text-md); color: var(--text-secondary); }
 .vo-note-block .t-label { color: var(--text-primary); }
 .vo-console { border: var(--stroke-1) solid var(--veil-ink-25); background: var(--surface-glass-thin); }
 .vo-console__top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); border-bottom: var(--stroke-1) solid var(--veil-ink-25); }
+.vo-console__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3) var(--space-6); margin-left: auto; }
 .vo-console__clock { margin: 0; color: var(--text-secondary); }
 .vo-console__clock span { color: var(--text-primary); margin-left: var(--space-2); }
 .vo-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -252,11 +355,17 @@
 @media (max-width: 36rem) { .vo-tab__name { display: none; } }
 .vo-console__body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(18rem, 1fr); }
 @media (max-width: 64rem) { .vo-console__body { grid-template-columns: minmax(0, 1fr); } }
-.vo-streams { padding: var(--space-2) var(--space-4) var(--space-3); border-right: var(--stroke-1) solid var(--veil-ink-25); min-width: 0; }
-@media (max-width: 64rem) { .vo-streams { border-right: 0; border-bottom: var(--stroke-1) solid var(--veil-ink-25); } }
+/* The console keeps one height while it runs: the streams stretch to the side column, the chat scrolls inside
+   its share of it and the event log shows its newest three lines. */
+.vo-main { display: flex; flex-direction: column; min-width: 0; border-right: var(--stroke-1) solid var(--veil-ink-25); }
+@media (max-width: 64rem) { .vo-main { border-right: 0; border-bottom: var(--stroke-1) solid var(--veil-ink-25); } }
+.vo-streams { flex: 1 1 auto; display: flex; flex-direction: column; padding: var(--space-2) var(--space-4) var(--space-3); min-width: 0; }
 .vo-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); padding: var(--space-2) 0; color: var(--text-secondary); }
 .vo-legend i { display: inline-block; width: 1rem; vertical-align: middle; margin-right: var(--space-2); }
-.vo-stream { padding: var(--space-3) 0; border-top: var(--stroke-1) solid var(--veil-ink-12); }
+/* the four plots share the height that the column beside them has, so the console closes flush on both sides */
+.vo-stream { flex: 1 1 auto; display: flex; flex-direction: column; padding: var(--space-3) 0; border-top: var(--stroke-1) solid var(--veil-ink-12); }
+.vo-stream__plot { position: relative; flex: 1 1 4rem; min-height: 4rem; }
+@media (max-width: 64rem) { .vo-stream__plot { flex-basis: 5.5rem; min-height: 5.5rem; } }
 .vo-stream__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-1) var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2); }
 .vo-stream__name { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-medium); letter-spacing: var(--tracking-label); text-transform: uppercase; }
 .vo-stream__name small { font-size: inherit; color: var(--text-secondary); margin-left: var(--space-2); text-transform: none; }
@@ -265,7 +374,7 @@
 .vo-stream.is-current .vo-stream__label { background: var(--found-light); }
 .vo-stream__val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
 .vo-stream__val .sv-s { color: var(--text-secondary); margin-left: var(--space-3); }
-.vo-stream canvas { width: 100%; height: 5.5rem; display: block; }
+.vo-stream canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 @media (max-width: 36rem) { .vo-stream__name small { display: block; margin: var(--space-1) 0 0; } }
 .vo-side { display: flex; flex-direction: column; min-width: 0; }
 .vo-status { padding: var(--space-5); border-bottom: var(--stroke-1) solid var(--veil-ink-25); }
@@ -288,8 +397,8 @@
 .vo-faults__row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .vo-toggle { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
 .vo-toggle input { width: 1rem; height: 1rem; accent-color: var(--cf-schwarz); margin: 0; }
-.vo-chat { display: flex; flex-direction: column; flex: 1; min-height: 20rem; }
-.vo-chat__log { flex: 1; max-height: 24rem; overflow-y: auto; padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+.vo-chat { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 24rem; }
+.vo-chat__log { flex: 1 1 0; min-height: 8rem; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .vo-msg { max-width: 94%; font-size: var(--text-md); line-height: var(--leading-relaxed); }
 .vo-msg--user { align-self: flex-end; padding: var(--space-2) var(--space-3); border: var(--stroke-1) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--cf-weiss); }
 .vo-msg--bot { align-self: flex-start; padding-top: var(--space-2); border-top: var(--stroke-1) solid var(--border-strong); color: var(--text-secondary); }
@@ -305,7 +414,7 @@
 .vo-chat__form .cf-field__input { flex: 1; min-width: 0; font-size: var(--text-lg); padding: var(--space-2) 0; }
 .vo-log { border-top: var(--stroke-1) solid var(--veil-ink-25); padding: var(--space-3) var(--space-4) var(--space-4); }
 .vo-log__head { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2); }
-.vo-log__list { list-style: none; margin: 0; padding: 0; max-height: 8rem; overflow-y: auto; font-family: var(--font-mono); font-size: var(--text-sm); display: flex; flex-direction: column; gap: var(--space-1); }
+.vo-log__list { list-style: none; margin: 0; padding: 0; height: 4.4rem; height: calc(3lh + 2 * var(--space-1)); overflow-y: auto; overscroll-behavior: contain; font-family: var(--font-mono); font-size: var(--text-sm); display: flex; flex-direction: column; gap: var(--space-1); }
 .vo-log__list li { display: flex; gap: var(--space-4); color: var(--text-secondary); }
 .vo-log__list li time { flex: none; color: var(--text-secondary); }
 .vo-log__list li .ev-asset { flex: none; color: var(--text-primary); }
@@ -316,10 +425,26 @@
 .vo-proof-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(16rem, 1fr); gap: var(--space-12); align-items: start; }
 @media (max-width: 64rem) { .vo-proof-grid { grid-template-columns: minmax(0, 1fr); } }
 .vo-facts-col .vo-stat__num { font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.25rem); }
+/* the figure's table view: the accordion, without the inset its question-and-answer form has */
 .vo-tableview { margin-top: var(--space-2); border-top: var(--stroke-1) solid var(--veil-ink-25); }
-.vo-tableview .cf-accordion__summary { font-size: var(--text-md); }
+.vo-tableview .cf-accordion__summary { padding-left: 0; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-medium); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.vo-tableview .cf-accordion__content { padding-inline: 0; max-width: none; overflow-x: auto; }
+.vo-tableview .cf-table { margin-top: var(--space-2); }
+/* Four columns do not fit a phone: the last was squeezed to a word a line. There each release is a block, what it
+   added first and its two scores under it, each named. */
+@media (max-width: 40rem) {
+  .vo-tableview .cf-table, .vo-tableview .cf-table tbody { display: block; }
+  .vo-tableview .cf-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .vo-tableview .cf-table tr { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); column-gap: var(--space-3); row-gap: var(--space-1); padding-block: var(--space-3); border-bottom: var(--stroke-1) solid var(--border-subtle); }
+  .vo-tableview .cf-table td { padding: 0; border-bottom: 0; }
+  .vo-tableview .cf-table td:first-child { grid-column: 1; grid-row: 1 / span 3; font-family: var(--font-mono); font-size: var(--text-sm); padding-top: 0.15em; }
+  .vo-tableview .cf-table td:last-child { grid-column: 2; grid-row: 1; margin-bottom: var(--space-1); }
+  .vo-tableview .cf-table td.cf-table__num { grid-column: 2; display: grid; grid-template-columns: 7rem auto; justify-content: start; column-gap: var(--space-2); text-align: left; }
+  .vo-tableview .cf-table td.cf-table__num::before { content: attr(data-label); align-self: center; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-secondary); }
+}
 .vo-honest { margin-top: var(--space-16); }
 .vo-honest .t-label { margin: 0 0 var(--space-2); color: var(--text-secondary); }
+.vo-more { margin: var(--space-8) 0 0; }
 
 /* ------------------------------------------------------------------ roadmap */
 .vo-road { list-style: none; margin: 0; padding: 0; border-top: var(--stroke-1) solid var(--border-strong); }
@@ -331,3 +456,26 @@
 
 /* ------------------------------------------------------------------ footer */
 .cf-footer__tagline { max-width: 34rem; }
+
+/* ------------------------------------------------------------------ booth scale
+   On a wide booth screen main.js zooms the root (see initBoothScale). A zoom grows viewport units with
+   everything else, so the one rule that measures the window's height takes the factor out again. */
+:root { --vo-zoom: 1; }
+.cf-hero.vo-hero { min-height: min(calc(92vh / var(--vo-zoom)), 56rem); }
+
+/* ------------------------------------------------------------------ arrival
+   A block rises a little as it comes into view. The scroll position drives it and no script does: a browser
+   without view timelines, a reader who asks for less motion and a printed page all get the block where it
+   stands. So does a booth screen, which holds still at each stop and would leave the blocks at its lower edge
+   half drawn. Only blocks shorter than a screen take part, so nothing tall waits half-drawn. */
+@media screen and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    :root:not(.vo-kiosk) :is(.vo-head, .vo-split > *, .vo-grid > .vo-cell, .vo-viz-grid > .vo-fig, .vo-principle,
+                             .vo-fleet, .vo-asks, .vo-road__item, .v2-spec-col) {
+      animation: vo-arrive linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+}
+@keyframes vo-arrive { from { opacity: 0; transform: translateY(1.25rem); } }

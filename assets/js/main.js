@@ -22,8 +22,56 @@
     if (parent) parent.appendChild(e);
     return e;
   }
+  /* ------------------------------------------------------------------ booth scale
+     The page is composed for a window of 1440 by 900. A booth screen (?kiosk) is larger and is read from across
+     the aisle, so there the root is zoomed until that window fills the screen: 1.2 on a 1920 by 1080 screen,
+     2.4 on a 4K panel. &zoom=1.5 sets the factor by hand and &zoom=1 switches it off. A zoom grows viewport
+     units along with everything else, which is why the stylesheet divides by --vo-zoom where it measures the
+     window. */
+  let ZOOM = 1;
+  function initBoothScale() {
+    if (!KIOSK) return;
+    const page = document.documentElement;
+    page.classList.add('vo-kiosk');
+    if (!window.CSS || !CSS.supports('zoom', '2')) return;
+    const asked = parseFloat((/[?&#]zoom=(\d*\.?\d+)/.exec(location.href) || [])[1]);
+    let checked = false, usable = true;
+    const set = (z) => {
+      ZOOM = z;
+      page.style.zoom = z === 1 ? '' : String(z);
+      page.style.setProperty('--vo-zoom', String(z));
+    };
+    // The sums here and in the stylesheet hold for a zoom as the standard describes it: client sizes stay in
+    // the page's own pixels, client rectangles and viewport units grow. A browser that zooms another way
+    // keeps the page as it is.
+    const standard = () => {
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:absolute;left:0;top:0;width:100px;height:100vh;visibility:hidden;pointer-events:none';
+      document.body.appendChild(probe);
+      const r = probe.getBoundingClientRect();
+      const ok = probe.offsetWidth === 100 && Math.abs(r.width - 100 * ZOOM) < 1 && Math.abs(r.height - window.innerHeight * ZOOM) < 2;
+      probe.remove();
+      return ok;
+    };
+    const fit = () => {
+      if (!usable) return;
+      let z = asked > 0 ? asked : Math.min(window.innerWidth / 1440, window.innerHeight / 900);
+      z = clamp(z, 1, 4);
+      if (!(asked > 0) && z < 1.1) z = 1;                    // too little to be worth the fractions
+      if (Math.abs(z - ZOOM) < 0.004) return;
+      set(z);
+      if (z !== 1 && !checked) {
+        checked = true;
+        if (!standard()) { usable = false; set(1); }
+      }
+    };
+    fit();
+    window.addEventListener('resize', fit);
+  }
+
   function fitCanvas(canvas, maxDpr = 2) {
-    const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+    // under the booth scale one of the page's pixels covers more of the screen's than devicePixelRatio says
+    const dpr = Math.min((window.devicePixelRatio || 1) * ZOOM, ZOOM > 1 ? 3 : maxDpr);
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
       canvas.width = Math.round(w * dpr);
@@ -56,120 +104,288 @@
     map.forEach((_, id) => { const s = document.getElementById(id); if (s) io.observe(s); });
   }
 
-  /* ------------------------------------------------------------------ hero: the stack, one plane lit at a time */
+  /* The links of the bar stay on this page, so its open panel has to close when one is followed. */
+  function initMenu() {
+    const toggle = $('.cf-nav__toggle');
+    if (!toggle) return;
+    $$('.cf-nav__link').forEach((a) => a.addEventListener('click', () => {
+      if (toggle.getAttribute('aria-expanded') === 'true') toggle.click();
+    }));
+  }
+
+  /* The design system draws an accordion's panel from .is-open; a <details> says it with [open]. */
+  function initDisclosures() {
+    $$('details.cf-accordion__item').forEach((item) => {
+      const sync = () => item.classList.toggle('is-open', item.open);
+      item.addEventListener('toggle', () => requestAnimationFrame(sync));
+      sync();
+    });
+  }
+
+  /* ------------------------------------------------------------------ hero
+     The stack as an object in space, drawn at the size of its box so every label stays in whole pixels: eleven
+     levels standing over one asset's capsule on the lattice, telemetry and language arriving on the ground, and
+     one level lit at a time. Nothing here is a picture file. */
   function initHero() {
     const svg = $('#heroArt');
     if (!svg) return;
-    const CX = 540, TOP = 240, GAP = 26, A = 140, B = 70, LEVELS = 11;
-    const CAP = { y: 650, a: 180, b: 90 };
-    const g = svgEl('g', {}, svg);
+    const box = svg.parentElement, still = $('#cf-hero-still');
+    const side = window.matchMedia('(min-width: 56.26rem)');   // the art stands beside the copy; below, above it
+    const LEVELS = 11, T = 16, RISE = 70, GAP = 24, REACH = 150, LIFT = 12;
+    const zOf = (k) => T + RISE + GAP * k;
+    const DIRB = [-0.8944, 0.4472], EI = [0.8944, 0.4472];     // back along a stream, and the lattice's other axis
+    const memory = Array.from({ length: 20 }, () => (Math.random() < 0.3 ? 0.12 + Math.random() * 0.25 : 0));
+    let m = null, first = true, t = 0, acc = 0, running = false, last = 0;
+    let lit = REDUCED ? 5 : -1, hold = REDUCED ? 0 : 1.5;
 
-    // capsule with its 3 x 3 lattice
-    svgEl('path', { d: rhombus(CX, CAP.y, CAP.a, CAP.b), class: 'ha-capsule' }, g);
-    for (let k = 1; k < 3; k++) {
-      const f = k / 3;
-      svgEl('path', { class: 'ha-lattice', d: `M${CX - CAP.a + CAP.a * f} ${CAP.y - CAP.b * f} L${CX + CAP.a * f} ${CAP.y + CAP.b - CAP.b * f}` }, g);
-      svgEl('path', { class: 'ha-lattice', d: `M${CX + CAP.a - CAP.a * f} ${CAP.y - CAP.b * f} L${CX - CAP.a * f} ${CAP.y + CAP.b - CAP.b * f}` }, g);
-    }
-    // telemetry streams arriving along the 26.57 deg axis onto the capsule's near edge
-    const L = [CX - CAP.a, CAP.y], T = [CX, CAP.y - CAP.b];
-    const dir = [0.8944, 0.4472], nrm = [-0.4472, 0.8944];
-    const streams = [0.18, 0.38, 0.58, 0.78].map((f, i) => {
-      const end = [L[0] + f * (T[0] - L[0]), L[1] + f * (T[1] - L[1])];
-      const len = 130;
-      const start = [end[0] - dir[0] * len, end[1] - dir[1] * len];
-      const path = svgEl('path', { class: 'ha-wave' + (i === 3 ? ' ha-wave--faint' : '') }, g);
-      return { start, len, path, k: 0.09 + i * 0.025, amp: 5 + (i % 2) * 3, ph: i * 1.7 };
-    });
-    // strut: where the spikes climb
-    svgEl('path', { class: 'ha-strut', d: `M${CX} ${CAP.y} V${TOP - B - 20}` }, g);
-    // planes, painted bottom to top: in isometry higher is nearer
-    const planes = [];
-    for (let i = 0; i < LEVELS; i++) {
-      const y = TOP + (LEVELS - 1 - i) * GAP;
-      planes.push(svgEl('path', { d: rhombus(CX, y, A, B), class: 'ha-plane' }, g));
-    }
-    const nodes = [[CX - A, 0], [CX, -B], [CX + A, 0], [CX, B]].map(([x, dy]) => svgEl('circle', { r: 2.5, cx: x, cy: 0, class: 'ha-node', 'data-dy': dy }, g));
-    const spikes = Array.from({ length: 5 }, () => svgEl('rect', { width: 4, height: 4, x: CX - 2, y: CAP.y, class: 'ha-spike' }, g));
-    // labels with their label rules (the line runs out of the word to the object)
-    const label = (x1, y, x2, text, muted) => {
-      svgEl('path', { class: 'ha-rule', d: `M${x1} ${y} H${x2}` }, g);
-      const t = svgEl('text', { x: x2 + 8, y: y + 4, class: 'ha-label' + (muted ? ' ha-label--muted' : '') }, g);
-      t.textContent = text;
-      return t;
-    };
-    const sub = (x, y, str) => { const t = svgEl('text', { x, y, class: 'ha-label ha-label--muted' }, g); t.textContent = str; };
-    label(CX + A + 6, TOP, CX + A + 34, '11 levels');
-    sub(CX + A + 42, TOP + 18, '34.8M parameters');
-    label(CX + 8, TOP - B - 20, CX + A + 34, 'Spike stream', true);
-    label(CX + CAP.a + 6, CAP.y, CX + CAP.a + 26, 'Memory capsule');
-    sub(CX + CAP.a + 34, CAP.y + 18, 'Asset P-104');
-    const s3 = streams[3].start;
-    const tl = svgEl('text', { x: s3[0] - 70, y: s3[1] - 34, class: 'ha-label' }, g);
-    tl.textContent = 'Telemetry';
-    sub(s3[0] - 70, s3[1] - 18, '+ language');
-    const litRule = svgEl('path', { class: 'ha-rule' }, g);
-    const litText = svgEl('text', { class: 'ha-label' }, g);
+    function build() {
+      const w = box.clientWidth, h = box.clientHeight;
+      svg.innerHTML = '';
+      m = null;
+      if (w < 150 || h < 130) return;
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      const beside = side.matches;
+      const labels = beside && w >= 540 && h >= 430;
+      const padR = labels ? 150 : 4, padL = 4, padT = labels ? 8 : 4, padB = 4;
+      const GX0 = -306, GX1 = 180, GY0 = -400, GY1 = 152;        // the drawing's extent around the capsule's centre
+      const s = clamp(Math.min((w - padL - padR) / (GX1 - GX0), (h - padT - padB) / (GY1 - GY0)), 0.36, 1.12);
+      const X0 = beside ? w - padR - GX1 * s : (w - (GX0 + GX1) * s) / 2;
+      const Y0 = beside ? h - padB - GY1 * s : (h - (GY0 + GY1) * s) / 2;
+      const P = (x, y) => [X0 + x * s, Y0 + y * s];
+      const c = (i, j, z = 0) => P((i - j) * 30, (i + j) * 15 - z);   // lattice cell (i, j) at height z
+      const pts = (list) => list.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' L');
+      const poly = (list) => `M${pts(list)} Z`;
+      const seg = (a, b) => `M${pts([a, b])}`;
 
-    let lit = 4, t = 0;
+      const defs = svgEl('defs', {}, svg);
+      const fade = svgEl('radialGradient', { id: 'haFadeG' }, defs);
+      [[0, 1], [0.5, 0.75], [1, 0]].forEach(([o, a]) => svgEl('stop', { offset: o, 'stop-color': '#fff', 'stop-opacity': a }, fade));
+      const mask = svgEl('mask', { id: 'haFade', maskUnits: 'userSpaceOnUse', x: X0 - 400 * s, y: Y0 - 225 * s, width: 800 * s, height: 450 * s }, defs);
+      svgEl('rect', { x: X0 - 400 * s, y: Y0 - 225 * s, width: 800 * s, height: 450 * s, fill: 'url(#haFadeG)' }, mask);
+      const glow = svgEl('filter', { id: 'haGlow', x: '-40%', y: '-90%', width: '180%', height: '280%' }, defs);
+      svgEl('feGaussianBlur', { stdDeviation: (6 + 8 * s).toFixed(1) }, glow);
+
+      // the ground: the lattice, fading out around the base
+      const ground = svgEl('g', { class: 'ha-ground', mask: 'url(#haFade)' }, svg);
+      let d = '';
+      for (let n = -10; n <= 10; n++) d += seg(c(n, -10), c(n, 10)) + seg(c(-10, n), c(10, n));
+      svgEl('path', { d }, ground);
+
+      // where two more assets' capsules stand: footprints on the absent rung
+      const notes = [];
+      if (labels) {
+        [[5, 1, 'C-07', 1], [1, -5, 'S-2', -1]].forEach(([ci, cj, name, below]) => {
+          svgEl('path', { class: 'ha-quiet', d: poly([c(ci - 1, cj - 1), c(ci + 1, cj - 1), c(ci + 1, cj + 1), c(ci - 1, cj + 1)]) }, svg);
+          const at = c(ci + 1, cj - 1);
+          notes.push(text(svg, { x: at[0] + 7, y: at[1] + (below > 0 ? 14 : -6), class: 'ha-label ha-label--muted ha-note' }, name));
+        });
+      }
+
+      // telemetry and language arrive on the ground, as waves in the plane of the lattice
+      const streams = [-2.1, -0.7, 0.7, 2.1].map((i, n) => ({
+        end: [(i - 3) * 30, (i + 3) * 15], k: 0.085 + n * 0.018, amp: 5.5 + (n % 2) * 2, ph: n * 1.7,
+        path: svgEl('path', { class: 'ha-wave' + (n === 3 ? ' ha-wave--quiet' : '') }, svg),
+      }));
+      streams.forEach((st) => {
+        const at = P(st.end[0] + DIRB[0] * REACH, st.end[1] + DIRB[1] * REACH);
+        svgEl('circle', { class: 'ha-node', cx: at[0], cy: at[1], r: 1.8 }, svg);
+      });
+
+      // the capsule: a slab with a ring of cells that the stream teaches
+      svgEl('path', { class: 'ha-face ha-face--left', d: poly([c(-3, 3, T), c(3, 3, T), c(3, 3), c(-3, 3)]) }, svg);
+      svgEl('path', { class: 'ha-face ha-face--right', d: poly([c(3, 3, T), c(3, -3, T), c(3, -3), c(3, 3)]) }, svg);
+      svgEl('path', { class: 'ha-top', d: poly([c(-3, -3, T), c(3, -3, T), c(3, 3, T), c(-3, 3, T)]) }, svg);
+      const cells = [];
+      for (let a = -2.5; a <= 2.5; a++) for (let b = -2.5; b <= 2.5; b++) {
+        if (Math.max(Math.abs(a), Math.abs(b)) < 2.5) continue;
+        const el = svgEl('path', { class: 'ha-cell', d: poly([c(a - 0.5, b - 0.5, T), c(a + 0.5, b - 0.5, T), c(a + 0.5, b + 0.5, T), c(a - 0.5, b + 0.5, T)]) }, svg);
+        el.style.fillOpacity = memory[cells.length].toFixed(2);
+        cells.push(el);
+      }
+      let grid = '';
+      for (let n = -2; n <= 2; n++) grid += seg(c(n, -3, T), c(n, 3, T)) + seg(c(-3, n, T), c(3, n, T));
+      svgEl('path', { class: 'ha-lattice', d: grid }, svg);
+
+      // the eleven levels, painted from the lowest up: in isometry higher is nearer
+      const corners = [[-2, 2], [2, 2], [2, -2], [-2, -2]];        // left, front, right, back
+      const top = zOf(LEVELS - 1);
+      const strut = (ci, cj) => svgEl('path', { class: 'ha-strut', d: seg(c(ci, cj, T), c(ci, cj, top)) }, svg);
+      strut(-2, -2);
+      const levels = [];
+      for (let k = 0; k < LEVELS; k++) {
+        const g = svgEl('g', { class: 'ha-level', style: `--k:${k}` }, svg);
+        const shape = poly(corners.map(([ci, cj]) => c(ci, cj, zOf(k))));
+        svgEl('path', { class: 'ha-glow', d: shape, filter: 'url(#haGlow)' }, g);
+        svgEl('path', { class: 'ha-plane', d: shape }, g);
+        corners.forEach(([ci, cj]) => { const at = c(ci, cj, zOf(k)); svgEl('circle', { class: 'ha-node ha-corner', cx: at[0], cy: at[1], r: 2.2 }, g); });
+        levels.push(g);
+      }
+      strut(-2, 2); strut(2, -2); strut(2, 2);
+      const spikes = corners.map(([ci, cj]) => ({ ci, cj, el: svgEl('rect', { class: 'ha-spike', width: 4.4, height: 4.4 }, svg) }));
+
+      // labels: a mono word with the rule that runs out of it to the thing it names
+      let levelNote = null;
+      if (labels) {
+        const note = (x, y, lines, anchor = 'start') => lines.map((str, n) =>
+          text(svg, { x, y: y + 4 + n * 14, 'text-anchor': anchor, class: 'ha-label ha-note' + (n ? ' ha-label--muted' : '') }, str));
+        const rule = (dd) => svgEl('path', { class: 'ha-rule ha-note', d: dd }, svg);
+        const pr = c(2, -2, top), pb = c(-2, -2, top), pc = c(3, -3, T), xr = pr[0] + 38;
+        rule(`M${pr[0] + 7} ${pr[1]} H${xr - 8}`);
+        note(xr, pr[1], ['11 levels', '34.8M parameters']);
+        const yo = pb[1] - 24;
+        rule(`M${pb[0]} ${pb[1] - 7} V${yo} H${xr - 8}`);
+        note(xr, yo, ['Prediction', 'Surprise · answer']);
+        rule(`M${pc[0] + 7} ${pc[1]} H${pc[0] + 26}`);
+        note(pc[0] + 34, pc[1], ['Memory capsule', 'Asset P-104']);
+        const ps = P(-304, 126);
+        note(ps[0], ps[1], ['Telemetry', '+ language']);
+        levelNote = { rule: rule(''), text: text(svg, { 'text-anchor': 'end', class: 'ha-label ha-note' }, '') };
+      }
+
+      m = { c, P, levels, spikes, streams, cells, levelNote, top, s };
+      if (first && !REDUCED) {
+        first = false;
+        svg.classList.add('is-building');
+        setTimeout(() => svg.classList.remove('is-building'), 2200);
+      }
+      setLit(lit);
+      drawWaves();
+      drawSpikes();
+    }
+
     function setLit(i) {
-      planes.forEach((p, k) => p.classList.toggle('is-lit', k === i));
-      const y = TOP + (LEVELS - 1 - i) * GAP - (REDUCED ? 0 : 14);
-      nodes.forEach((n) => n.setAttribute('cy', y + Number(n.dataset.dy)));
-      litRule.setAttribute('d', `M${CX - A - 6} ${y} H${CX - A - 40}`);
-      litText.setAttribute('x', CX - A - 48); litText.setAttribute('y', y + 4); litText.setAttribute('text-anchor', 'end');
-      litText.textContent = `Level ${String(i + 1).padStart(2, '0')} fires`;
+      if (!m) return;
+      m.levels.forEach((g, k) => g.classList.toggle('is-lit', k === i));
+      if (!m.levelNote) return;
+      if (i < 0) { m.levelNote.rule.setAttribute('d', ''); m.levelNote.text.textContent = ''; return; }
+      const at = m.c(-2, 2, zOf(i));
+      const y = at[1] - (REDUCED ? 0 : LIFT);
+      m.levelNote.rule.setAttribute('d', `M${at[0] - 7} ${y} H${at[0] - 30}`);
+      m.levelNote.text.setAttribute('x', at[0] - 38);
+      m.levelNote.text.setAttribute('y', y + 4);
+      m.levelNote.text.textContent = `Level ${String(i + 1).padStart(2, '0')} fires`;
     }
     function drawWaves() {
-      streams.forEach((s) => {
+      if (!m) return;
+      m.streams.forEach((st) => {
         let d = '';
-        for (let u = 0; u <= s.len; u += 4) {
-          const off = Math.sin(u * s.k - t * 3 + s.ph) * s.amp * Math.min(1, u / 40) * Math.min(1, (s.len - u) / 30 + 0.2);
-          const x = s.start[0] + dir[0] * u + nrm[0] * off, y = s.start[1] + dir[1] * u + nrm[1] * off;
-          d += `${u ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
+        for (let u = 0; u <= REACH; u += 3) {
+          const env = Math.min(1, u / 28) * Math.min(1, (REACH - u) / 36);
+          const off = Math.sin(u * st.k + t * 3 + st.ph) * st.amp * env;
+          const at = m.P(st.end[0] + DIRB[0] * u + EI[0] * off, st.end[1] + DIRB[1] * u + EI[1] * off);
+          d += `${u ? 'L' : 'M'}${at[0].toFixed(1)} ${at[1].toFixed(1)}`;
         }
-        s.path.setAttribute('d', d);
-      });
-      spikes.forEach((sp, i) => {
-        const p = ((t * 0.35 + i / spikes.length) % 1);
-        sp.setAttribute('y', (CAP.y - p * (CAP.y - TOP + B + 20)).toFixed(1));
-        sp.setAttribute('opacity', (1 - p * 0.6).toFixed(2));
+        st.path.setAttribute('d', d);
       });
     }
-    setLit(lit); drawWaves();
-    if (REDUCED) return;
-    const still = $('#cf-hero-still');
-    let running = false, last = 0, acc = 0, hold = 0;
+    function drawSpikes() {
+      if (!m) return;
+      // four spikes, one up each corner, a quarter of a turn apart: a volley
+      m.spikes.forEach((sp, n) => {
+        const p = (t * 0.42 + n / 4) % 1;
+        const at = m.c(sp.ci, sp.cj, T + p * (m.top - T));
+        sp.el.setAttribute('x', (at[0] - 2.2).toFixed(1));
+        sp.el.setAttribute('y', (at[1] - 2.2).toFixed(1));
+        sp.el.setAttribute('opacity', (lit < 0 ? 0 : 1 - p * 0.55).toFixed(2));
+      });
+    }
+    function learn() {
+      // what the volley taught: one cell of the ring takes charge, the others let a little go
+      for (let n = 0; n < memory.length; n++) memory[n] *= 0.9;
+      const n = Math.floor(Math.random() * memory.length);
+      memory[n] = Math.min(0.85, memory[n] + 0.4);
+      if (m) m.cells.forEach((el, k) => { el.style.fillOpacity = memory[k].toFixed(2); });
+    }
     function frame(ts) {
       if (!running) return;
-      const dt = Math.min(0.05, (ts - last) / 1000 || 0.016); last = ts;
-      if (!still.checked) {
-        t += dt; drawWaves();
-        acc += dt;
+      const dt = Math.min(0.05, (ts - last) / 1000 || 0.016);
+      last = ts;
+      if (m && !still.checked) {
+        t += dt;
+        drawWaves();
+        drawSpikes();
         if (hold > 0) hold -= dt;
-        else if (acc > 0.24) { acc = 0; lit = (lit + 1) % LEVELS; setLit(lit); if (lit === LEVELS - 1) hold = 0.9; }
+        else if ((acc += dt) > 0.22) {
+          acc = 0;
+          lit = (lit + 1) % LEVELS;
+          setLit(lit);
+          if (lit === LEVELS - 1) { hold = 1.1; learn(); }
+        }
       }
       requestAnimationFrame(frame);
     }
-    onVisible(svg, (vis) => {
+
+    build();
+    if ('ResizeObserver' in window) new ResizeObserver(build).observe(box);
+    else window.addEventListener('resize', build);
+    if (REDUCED) return;
+    onVisible(box, (vis) => {
       if (vis && !running) { running = true; last = performance.now(); requestAnimationFrame(frame); }
       else if (!vis) running = false;
     }, '0px');
   }
 
-  /* ------------------------------------------------------------------ volley principle */
+  /* ------------------------------------------------------------------ the volley principle
+     Four neurons, each firing on every fourth peak, and the row where their spikes stand together. Drawn at the
+     size of its box; a mark runs along the signal and each peak's spikes answer as it passes. */
   function initVolley() {
-    const g = $('#volleyRows');
-    if (!g) return;
-    const rows = 4, period = 65, first = 16.25;
-    for (let r = 0; r < rows; r++) {
-      const y = 64 + r * 15;
-      svgEl('line', { x1: 0, x2: 520, y1: y, y2: y, class: 'row-base' }, g);
-      for (let k = 0; k < 8; k++) if (k % rows === r) {
-        const x = first + k * period;
-        svgEl('line', { x1: x, x2: x, y1: y - 6, y2: y + 6 }, g);
+    const box = $('#volleyFig');
+    if (!box) return;
+    let m = null, t = 0, running = false, last = 0;
+    chartFrame(box, (svg, w) => {
+      const wide = w >= 620;
+      const x0 = wide ? 104 : 30, x1 = w - 1;
+      const n = clamp(Math.round((x1 - x0) / 150), 4, 8);
+      const period = (x1 - x0) / n;
+      const yb = 34, A = 24, r0 = 94, rh = 24, ysum = r0 + 4 * rh + 12;
+      const wave = (x) => yb + A * Math.cos((2 * Math.PI * (x - x0)) / period);
+      let d = '';
+      for (let x = x0; x <= x1; x += 2) d += `${x === x0 ? 'M' : 'L'}${x.toFixed(1)} ${wave(x).toFixed(1)}`;
+      const peaks = [];
+      for (let k = 0; k < n; k++) {
+        const x = x0 + (k + 0.5) * period, row = k % 4, y = r0 + row * rh;
+        svgEl('line', { class: 'vv-strut', x1: x, x2: x, y1: yb - A + 5, y2: ysum - 12 }, svg);
+        peaks.push({ x, own: svgEl('line', { class: 'vv-spike', x1: x, x2: x, y1: y - 8, y2: y + 8 }, svg) });
       }
+      for (let row = 0; row < 4; row++) {
+        const y = r0 + row * rh;
+        svgEl('line', { class: 'vv-base', x1: x0, x2: x1, y1: y, y2: y }, svg);
+        text(svg, { x: 0, y: y + 4, class: 'ch-key' }, wide ? `Neuron 0${row + 1}` : `0${row + 1}`);
+      }
+      svgEl('line', { class: 'vv-sum', x1: x0, x2: x1, y1: ysum, y2: ysum }, svg);
+      peaks.forEach((pk) => { pk.sum = svgEl('line', { class: 'vv-spike vv-spike--sum', x1: pk.x, x2: pk.x, y1: ysum - 10, y2: ysum + 10 }, svg); });
+      text(svg, { x: 0, y: ysum + 4, class: 'ch-val' }, wide ? 'TOGETHER' : 'ALL');
+      if (wide) text(svg, { x: 0, y: yb + 4, class: 'ch-key' }, 'Signal');
+      svgEl('path', { class: 'vv-wave', d }, svg);
+      const bloom = svgEl('circle', { class: 'ch-bloom', r: 15, opacity: 0 }, svg);
+      const mark = svgEl('circle', { class: 'ch-node', r: 3.5, opacity: 0 }, svg);
+      m = { x0, x1, period, wave, peaks, bloom, mark };
+      place();
+    });
+    function place() {
+      if (!m) return;
+      const span = m.x1 - m.x0;
+      const x = m.x0 + ((t * 95) % (span + m.period)) - m.period * 0.25;
+      const on = !REDUCED && x >= m.x0 && x <= m.x1;
+      [m.mark, m.bloom].forEach((el) => { el.setAttribute('cx', x.toFixed(1)); el.setAttribute('cy', m.wave(x).toFixed(1)); el.setAttribute('opacity', on ? 1 : 0); });
+      m.peaks.forEach((pk) => {
+        const hot = !REDUCED && x >= pk.x && x - pk.x < m.period * 0.8;
+        pk.own.classList.toggle('is-hot', hot);
+        pk.sum.classList.toggle('is-hot', hot);
+      });
     }
+    function frame(ts) {
+      if (!running) return;
+      t += Math.min(0.05, (ts - last) / 1000 || 0.016);
+      last = ts;
+      place();
+      requestAnimationFrame(frame);
+    }
+    if (REDUCED) return;
+    onVisible(box, (vis) => {
+      if (vis && !running) { running = true; last = performance.now(); requestAnimationFrame(frame); }
+      else if (!vis) running = false;
+    }, '0px');
   }
 
   /* ------------------------------------------------------------------ architecture */
@@ -219,6 +435,9 @@
   };
   const TAGS = { measured: ['vo-tag--measured', 'Measured · v16'], new: ['vo-tag--new', 'New in vNN'], design: ['vo-tag--design', 'Design target'] };
   const TOUR = ['telemetry', 'delta', 'language', 'bytes', 'stream', 'levels', 'read', 'cells', 'output', 'predict', 'tape', 'fast', 'capsule', 'slow'];
+  const SHORT = { telemetry: 'Telemetry', delta: 'Delta encoder', language: 'Language', bytes: 'Byte encoder', stream: 'Spike stream',
+    levels: 'Eleven levels', read: 'State read', cells: 'Threshold cells', output: 'Output neurons', predict: 'Prediction',
+    tape: 'Read tape', fast: 'Fast synapses', capsule: 'Memory capsule', slow: 'Slow weights' };
 
   function initArch() {
     const svg = $('#archSvg');
@@ -232,24 +451,70 @@
     for (let r = 0; r < 6; r++) for (let c = 0; c < 22; c++) svgEl('circle', { cx: 40 + c * 11.6, cy: 482 + r * 12.5, r: 1.6, opacity: (0.15 + Math.random() * 0.55).toFixed(2) }, $('#slowGrid'));
     const synW = syns.map(() => Math.random() * 0.2);
 
-    const panel = $('#archPanel'), pTag = $('#panelTag'), pTitle = $('#panelTitle'), pBody = $('#panelBody'), pFacts = $('#panelFacts');
-    const parts = $$('.part', svg);
-    function select(key) {
+    const panel = $('#archPanel'), pTag = $('#panelTag'), pContent = $('#panelContent');
+    const parts = $$('.part', svg), scroller = svg.parentElement;
+    // every part by name, in the order a spike meets them
+    const listed = TOUR.map((key, n) => {
+      const li = document.createElement('li'), btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vo-part';
+      btn.innerHTML = `<span class="vo-part__n">${String(n + 1).padStart(2, '0')}</span><span class="vo-part__name">${SHORT[key]}</span>`;
+      btn.addEventListener('click', () => { stopTour(); select(key, true); });
+      li.appendChild(btn);
+      $('#panelParts').appendChild(li);
+      return { key, btn };
+    });
+    // on a narrow screen the drawing scrolls sideways: its edges fade where more of it waits, and a chosen part is brought to the middle
+    function edges() {
+      const more = [];
+      if (scroller.scrollLeft > 4) more.push('start');
+      if (scroller.scrollLeft < scroller.scrollWidth - scroller.clientWidth - 4) more.push('end');
+      scroller.dataset.more = more.join(' ');
+    }
+    scroller.addEventListener('scroll', edges, { passive: true });
+    window.addEventListener('resize', edges);
+    function reveal(part) {
+      if (scroller.scrollWidth <= scroller.clientWidth + 4) return;
+      const box = part.getBBox(), scale = svg.clientWidth / svg.viewBox.baseVal.width;
+      scroller.scrollTo({ left: (box.x + box.width / 2) * scale - scroller.clientWidth / 2, behavior: REDUCED ? 'auto' : 'smooth' });
+    }
+    function select(key, show) {
       const d = PARTS[key];
       if (!d) return;
-      parts.forEach((p) => { const on = p.dataset.part === key; p.classList.toggle('is-active', on); p.setAttribute('aria-pressed', String(on)); });
+      parts.forEach((p) => { const on = p.dataset.part === key; p.classList.toggle('is-active', on); p.setAttribute('aria-pressed', String(on)); if (on && show) reveal(p); });
+      listed.forEach((item) => item.btn.setAttribute('aria-pressed', String(item.key === key)));
       const [cls, label] = TAGS[d.tag];
       pTag.className = 'vo-tag ' + cls;
       pTag.textContent = label;
-      pTitle.textContent = d.title;
-      pBody.textContent = d.body;
-      pFacts.innerHTML = '';
+      fill(pContent, d);
+      panel.classList.remove('is-swapping'); void panel.offsetWidth; panel.classList.add('is-swapping');
+    }
+    function fill(box, d) {
+      box.querySelector('.vo-panel__title').textContent = d.title;
+      box.querySelector('.vo-panel__body').textContent = d.body;
+      const facts = box.querySelector('.vo-facts');
+      facts.innerHTML = '';
       d.facts.forEach(([k, v]) => {
         const dt = document.createElement('dt'); dt.textContent = k;
         const dd = document.createElement('dd'); dd.textContent = v;
-        pFacts.append(dt, dd);
+        facts.append(dt, dd);
       });
-      panel.classList.remove('is-swapping'); void panel.offsetWidth; panel.classList.add('is-swapping');
+    }
+    // The longest part sets the panel's height, so neither the panel nor the page below it moves as parts change.
+    let reservedAt = 0;
+    function reserve(force) {
+      const width = pContent.clientWidth;
+      if (!width || (width === reservedAt && !force)) return;
+      reservedAt = width;
+      const probe = pContent.cloneNode(true);
+      [probe, ...probe.querySelectorAll('[id]')].forEach((el) => el.removeAttribute('id'));
+      probe.setAttribute('aria-hidden', 'true');
+      probe.style.cssText = `position:absolute;left:0;top:0;width:${width}px;min-height:0;visibility:hidden;pointer-events:none`;
+      panel.appendChild(probe);
+      let tallest = 0;
+      Object.values(PARTS).forEach((d) => { fill(probe, d); tallest = Math.max(tallest, probe.offsetHeight); });
+      probe.remove();
+      pContent.style.minHeight = Math.ceil(tallest) + 'px';
     }
     let tourTimer = null, tourIdx = 0;
     const tourBtn = $('#archTour');
@@ -258,7 +523,7 @@
     function startTour() {
       tourBtn.setAttribute('aria-pressed', 'true'); tourLabel.textContent = 'Pause tour ';
       tourIdx = Math.max(0, TOUR.indexOf($('.part.is-active', svg)?.dataset.part));
-      tourTimer = setInterval(() => { tourIdx = (tourIdx + 1) % TOUR.length; select(TOUR[tourIdx]); }, 4200);
+      tourTimer = setInterval(() => { tourIdx = (tourIdx + 1) % TOUR.length; select(TOUR[tourIdx], true); }, 4200);
     }
     tourBtn.addEventListener('click', () => (tourTimer ? stopTour() : startTour()));
     parts.forEach((p) => {
@@ -266,6 +531,11 @@
       p.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stopTour(); select(p.dataset.part); } });
     });
     select('read');
+    reserve();
+    if ('ResizeObserver' in window) new ResizeObserver(() => reserve()).observe(pContent);
+    else window.addEventListener('resize', () => reserve());
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => reserve(true));
+    edges();
     if (KIOSK) startTour();
 
     const meter = $('#archMeter');
@@ -326,6 +596,13 @@
     tip.style.top = top + 'px';
   }
   const hideTip = (tip) => tip.classList.remove('is-on');
+  /* Where the pointer is, in the drawing's own units. They are the page's pixels, which a zoom makes larger
+     than the screen's. */
+  const pointerIn = (svg, e) => {
+    const r = svg.getBoundingClientRect();
+    const k = r.width ? svg.viewBox.baseVal.width / r.width : 1;
+    return [(e.clientX - r.left) * k, (e.clientY - r.top) * k];
+  };
   const text = (parent, attrs, str) => { const t = svgEl('text', attrs, parent); t.textContent = str; return t; };
 
   /* ------------------------------------------------------------------ forgetting chart */
@@ -333,51 +610,55 @@
     const container = $('#forgetChart'), input = $('#slope'), out = $('#slopeOut'), note = $('#slopeNote');
     if (!container) return;
     let s = parseFloat(input.value);
-    const W = 2048, A0 = 128, A1 = 65536, YMIN = 1e-3, YMAX = 1.6;
+    const W = 2048, REACHED = 8192, A0 = 128, A1 = 65536, YMIN = 1e-3, YMAX = 1.6;
     const share = (age) => (age <= W ? 1 : Math.pow(age / W, s / Math.LN2));
     const chart = chartFrame(container, (svg, w, h, tip) => {
-      const m = { l: 44, r: 12, t: 16, b: 30 };
-      const pw = w - m.l - m.r, ph = h - m.t - m.b;
+      const m = { l: 44, r: 12, t: 26, b: 30 };
+      const pw = w - m.l - m.r, ph = h - m.t - m.b, floor = m.t + ph;
       const x = (a) => m.l + ((Math.log2(a) - Math.log2(A0)) / (Math.log2(A1) - Math.log2(A0))) * pw;
       const y = (v) => m.t + (1 - (Math.log10(v) - Math.log10(YMIN)) / (Math.log10(YMAX) - Math.log10(YMIN))) * ph;
+      // the frame, its subdivisions and the two things named above its ceiling
       svgEl('rect', { x: x(A0), y: m.t, width: x(W) - x(A0), height: ph, class: 'ch-band' }, svg);
-      text(svg, { x: x(A0) + 8, y: m.t + 16, class: 'ch-key' }, 'Training window');
       [0.1, 0.01].forEach((v) => svgEl('line', { x1: m.l, x2: w - m.r, y1: y(v), y2: y(v), class: 'ch-step' }, svg));
       svgEl('line', { x1: m.l, x2: w - m.r, y1: m.t, y2: m.t, class: 'ch-frame' }, svg);
-      svgEl('line', { x1: m.l, x2: w - m.r, y1: m.t + ph, y2: m.t + ph, class: 'ch-frame' }, svg);
+      svgEl('line', { x1: m.l, x2: w - m.r, y1: floor, y2: floor, class: 'ch-frame' }, svg);
+      svgEl('line', { x1: x(REACHED), x2: x(REACHED), y1: m.t, y2: floor, class: 'ch-strut' }, svg);
+      text(svg, { x: (x(A0) + x(W)) / 2, y: m.t - 8, 'text-anchor': 'middle', class: 'ch-key' }, 'Training window');
+      text(svg, { x: x(REACHED), y: m.t - 8, 'text-anchor': 'middle', class: 'ch-key' }, pw < 380 ? 'v16 reach' : 'v16 reads to here');
       [[1, '1'], [0.1, '0.1'], [0.01, '0.01'], [0.001, '0.001']].forEach(([v, l]) => text(svg, { x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'ch-num' }, l));
       [[128, '128'], [512, '512'], [2048, '2,048'], [8192, '8,192'], [32768, '32,768']].forEach(([a, l]) => {
-        if (pw < 340 && (a === 512 || a === 32768)) return;
+        if (pw < 380 && (a === 512 || a === 32768)) return;
         text(svg, { x: x(a), y: h - 8, 'text-anchor': 'middle', class: 'ch-num' }, l);
       });
-      svgEl('line', { x1: x(8192), x2: x(8192), y1: m.t, y2: m.t + ph, class: 'ch-strut' }, svg);
-      text(svg, { x: x(8192) + 6, y: m.t + 16, class: 'ch-key' }, 'v16 reads to here');
-      svgEl('path', { d: `M${x(A0)} ${y(1)} H${x(W)} V${m.t + ph} H${x(A1)}`, class: 'ch-trace ch-trace--near' }, svg);
+      // the Transformer: full weight inside its window, none beyond it
+      svgEl('path', { d: `M${x(A0)} ${y(1)} H${x(W)} V${floor} H${x(A1)}`, class: 'ch-trace ch-trace--near' }, svg);
+      text(svg, { x: x(W) + 8, y: floor - 8, class: 'ch-key' }, x(A1) - x(W) < 250 ? 'Transformer: 0' : 'Transformer · nothing beyond its window');
+      // Volley: a power of the age
       let d = `M${x(A0)} ${y(1)} H${x(W)}`;
-      let end = null;
       for (let a = W; a <= A1; a *= 1.04) {
         const v = share(a);
-        if (v < YMIN) { d += ` L${x(a).toFixed(1)} ${m.t + ph}`; break; }
+        if (v < YMIN) { d += ` L${x(a).toFixed(1)} ${floor}`; break; }
         d += ` L${x(a).toFixed(1)} ${y(v).toFixed(1)}`;
-        end = [x(a), y(v)];
       }
       svgEl('path', { d, class: 'ch-trace' }, svg);
-      const v8 = share(8192);
-      if (v8 >= YMIN) {
-        svgEl('circle', { cx: x(8192), cy: y(v8), r: 3.5, class: 'ch-node' }, svg);
-        text(svg, { x: x(8192) + 8, y: y(v8) - 8, class: 'ch-val' }, v8.toPrecision(2));
+      const reached = share(REACHED);
+      if (reached >= YMIN) {
+        svgEl('circle', { cx: x(REACHED), cy: y(reached), r: 3.5, class: 'ch-node' }, svg);
+        text(svg, { x: x(REACHED) + 9, y: y(reached) - 7, class: 'ch-val' }, reached.toPrecision(2));
       }
-      if (end) text(svg, { x: Math.min(end[0], w - m.r) - 2, y: end[1] - 10, class: 'ch-key', 'text-anchor': 'end' }, 'Volley');
-      text(svg, { x: x(W) + 8, y: m.t + ph - 8, class: 'ch-key' }, 'Transformer · 0 beyond its window');
-      const cross = svgEl('line', { y1: m.t, y2: m.t + ph, class: 'ch-cross', opacity: 0 }, svg);
+      // the trace's own name stands above and to the right of it, where a falling line leaves room
+      let named = 22000;
+      while (named > W * 1.3 && share(named) < 0.004) named /= 1.1;
+      text(svg, { x: Math.min(x(named) + 9, w - m.r - 44), y: Math.max(y(share(named)) - 9, m.t + 14), class: 'ch-val' }, 'VOLLEY');
+      const cross = svgEl('line', { y1: m.t, y2: floor, class: 'ch-cross', opacity: 0 }, svg);
       const hit = svgEl('rect', { x: m.l, y: m.t, width: pw, height: ph, class: 'ch-hit' }, svg);
       hit.addEventListener('pointermove', (e) => {
-        const r = svg.getBoundingClientRect();
-        const px = clamp(e.clientX - r.left, m.l, m.l + pw);
+        const [mx, my] = pointerIn(svg, e);
+        const px = clamp(mx, m.l, m.l + pw);
         const age = Math.pow(2, Math.log2(A0) + ((px - m.l) / pw) * (Math.log2(A1) - Math.log2(A0)));
         cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('opacity', 1);
         const v = share(age);
-        showTip(tip, container, `<b>${fmt(Math.round(age))} steps ago</b><div class="tt-row"><span><i></i>Volley</span><span>${v >= 0.0001 ? v.toPrecision(2) : '<0.0001'}</span></div><div class="tt-row"><span><i class="dash"></i>Transformer</span><span>${age <= W ? '1' : '0'}</span></div>`, px, e.clientY - r.top);
+        showTip(tip, container, `<b>${fmt(Math.round(age))} steps ago</b><div class="tt-row"><span><i></i>Volley</span><span>${v >= 0.0001 ? v.toPrecision(2) : '<0.0001'}</span></div><div class="tt-row"><span><i class="dash"></i>Transformer</span><span>${age <= W ? '1' : '0'}</span></div>`, px, my);
       });
       hit.addEventListener('pointerleave', () => { hideTip(tip); cross.setAttribute('opacity', 0); });
     });
@@ -405,13 +686,16 @@
   function initReading() {
     const container = $('#readingChart');
     chartFrame(container, (svg, w, h, tip) => {
-      const m = { l: 8, r: 8, t: 30, b: 34 };
-      const n = READING.length, band = (w - m.l - m.r) / n;
+      const n = READING.length, band = (w - 16) / n;
+      const tight = band < 76;                                  // no room for a unit under every column: it moves to one line under all
+      const m = { l: 8, r: 8, t: 30, b: tight ? 48 : 34 };
       const a = Math.min(34, band * 0.36), b = a / 2;
       const floor = h - m.b - b, ph = floor - m.t - b - 6;
       const YMAX = 0.03;
       svgEl('line', { x1: m.l, x2: w - m.r, y1: floor + b, y2: floor + b, class: 'ch-frame' }, svg);
-      const tops = [];
+      const mids = [4, 11.3, 22.6, 45.3, 90.5, 181], p = 0.52;
+      const c = READING.reduce((acc, r, i) => acc + r.gain * Math.pow(mids[i], p), 0) / mids.reduce((acc, mm) => acc + Math.pow(mm, 2 * p), 0);
+      let law = '';
       READING.forEach((r, i) => {
         const cx = m.l + band * i + band / 2;
         const hh = Math.max(2, (r.gain / YMAX) * ph);
@@ -421,22 +705,20 @@
         svgEl('path', { class: 'iso-right', d: `M${cx + a} ${ty} L${cx} ${ty + b} L${cx} ${floor + b} L${cx + a} ${floor} Z` }, col);
         svgEl('path', { class: 'iso-top' + (i === n - 1 ? ' is-lit' : ''), d: rhombus(cx, ty, a, b) }, col);
         text(svg, { x: cx, y: ty - b - 8, 'text-anchor': 'middle', class: 'ch-val' }, r.gain.toFixed(3));
-        text(svg, { x: cx, y: h - 10, 'text-anchor': 'middle', class: 'ch-num' }, `${r.bin} KB`);
-        tops.push([cx, ty]);
+        text(svg, { x: cx, y: floor + b + 18, 'text-anchor': 'middle', class: 'ch-num' }, tight ? r.bin : `${r.bin} KB`);
+        law += `${i ? 'L' : 'M'}${cx.toFixed(1)} ${(floor - ((c * Math.pow(mids[i], p)) / YMAX) * ph).toFixed(1)} `;
         const hit = svgEl('rect', { x: m.l + band * i, y: 0, width: band, height: h, class: 'ch-hit' }, svg);
         hit.addEventListener('pointermove', (e) => {
           col.classList.add('is-hot');
-          const rc = svg.getBoundingClientRect();
-          showTip(tip, container, `<b>after ${r.bin} KB of a book</b><div class="tt-row"><span>gain</span><span>${r.gain.toFixed(4)} bits/byte</span></div><div class="tt-row"><span>median</span><span>${r.median.toFixed(4)}</span></div>`, e.clientX - rc.left, e.clientY - rc.top);
+          const [mx, my] = pointerIn(svg, e);
+          showTip(tip, container, `<b>after ${r.bin} KB of a book</b><div class="tt-row"><span>gain</span><span>${r.gain.toFixed(4)} bits/byte</span></div><div class="tt-row"><span>median</span><span>${r.median.toFixed(4)}</span></div>`, mx, my);
         });
         hit.addEventListener('pointerleave', () => { col.classList.remove('is-hot'); hideTip(tip); });
       });
-      // the fitted law through the column tops, on the faint rung
-      const mids = [4, 11.3, 22.6, 45.3, 90.5, 181], p = 0.52;
-      const c = READING.reduce((acc, r, i) => acc + r.gain * Math.pow(mids[i], p), 0) / mids.reduce((acc, mm) => acc + Math.pow(mm, 2 * p), 0);
-      const d = mids.map((mm, i) => `${i ? 'L' : 'M'}${tops[i][0].toFixed(1)} ${(floor - (c * Math.pow(mm, p) / YMAX) * ph - b * 2 - 14).toFixed(1)}`).join(' ');
-      svgEl('path', { d, class: 'ch-trace ch-trace--faint', 'pointer-events': 'none' }, svg);
-      text(svg, { x: m.l, y: 14, class: 'ch-key' }, 'Gain ∝ (text read)^0.52 · bits per byte');
+      // the fitted law, through the middle of every column's top
+      svgEl('path', { d: law, class: 'ch-trace ch-trace--faint', 'pointer-events': 'none' }, svg);
+      text(svg, { x: m.l, y: 14, class: 'ch-key' }, tight ? 'Gain ∝ (text read)^0.52' : 'Gain ∝ (text read)^0.52 · bits per byte');
+      if (tight) text(svg, { x: w / 2, y: h - 6, 'text-anchor': 'middle', class: 'ch-key' }, 'KB of the book already read');
     });
   }
 
@@ -453,37 +735,39 @@
     const container = $('#releaseChart');
     chartFrame(container, (svg, w, h, tip) => {
       const narrow = w < 520;
-      const m = { l: 40, r: narrow ? 16 : 132, t: 18, b: 30 };
-      const pw = w - m.l - m.r, ph = h - m.t - m.b, Y0 = 1.0, Y1 = 1.8;
-      const x = (i) => m.l + (i / (RELEASES.length - 1)) * pw;
+      // the first and the last value of each trace are printed beside it, so both ends keep room inside the frame
+      const m = { l: 40, r: 8, t: 18, b: 30 }, inL = narrow ? 14 : 52, inR = narrow ? 14 : 136;
+      const fw = w - m.l - m.r, ph = h - m.t - m.b, Y0 = 1.0, Y1 = 1.8, last = RELEASES.length - 1;
+      const x = (i) => m.l + inL + (i / last) * (fw - inL - inR);
       const y = (v) => m.t + (1 - (v - Y0) / (Y1 - Y0)) * ph;
-      [1.2, 1.4, 1.6].forEach((v) => svgEl('line', { x1: m.l, x2: m.l + pw, y1: y(v), y2: y(v), class: 'ch-step' }, svg));
-      svgEl('line', { x1: m.l, x2: m.l + pw, y1: m.t, y2: m.t, class: 'ch-frame' }, svg);
-      svgEl('line', { x1: m.l, x2: m.l + pw, y1: m.t + ph, y2: m.t + ph, class: 'ch-frame' }, svg);
+      [1.2, 1.4, 1.6].forEach((v) => svgEl('line', { x1: m.l, x2: m.l + fw, y1: y(v), y2: y(v), class: 'ch-step' }, svg));
+      svgEl('line', { x1: m.l, x2: m.l + fw, y1: m.t, y2: m.t, class: 'ch-frame' }, svg);
+      svgEl('line', { x1: m.l, x2: m.l + fw, y1: m.t + ph, y2: m.t + ph, class: 'ch-frame' }, svg);
       [1.0, 1.2, 1.4, 1.6, 1.8].forEach((v) => text(svg, { x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'ch-num' }, v.toFixed(1)));
       RELEASES.forEach((r, i) => text(svg, { x: x(i), y: h - 8, 'text-anchor': 'middle', class: 'ch-num' }, r.v));
       const path = (key) => RELEASES.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(r[key]).toFixed(1)}`).join(' ');
       svgEl('path', { d: path('tf'), class: 'ch-trace ch-trace--near' }, svg);
       svgEl('path', { d: path('snn'), class: 'ch-trace' }, svg);
-      const last = RELEASES.length - 1;
       svgEl('circle', { cx: x(last), cy: y(RELEASES[last].snn), r: 16, class: 'ch-bloom' }, svg);
       RELEASES.forEach((r, i) => {
         svgEl('circle', { cx: x(i), cy: y(r.tf), r: 3.5, class: 'ch-node--hollow' }, svg);
         svgEl('circle', { cx: x(i), cy: y(r.snn), r: 3.5, class: 'ch-node' }, svg);
       });
-      text(svg, { x: x(0) + 14, y: y(RELEASES[0].snn) + 28, class: 'ch-val' }, '1.645');
       if (!narrow) {
-        text(svg, { x: x(last) + 18, y: y(RELEASES[last].snn) - 6, class: 'ch-val' }, 'Volley 1.120');
-        text(svg, { x: x(last) + 18, y: y(RELEASES[last].tf) + 14, class: 'ch-key' }, 'Transformer 1.107');
+        const a = RELEASES[0], z = RELEASES[last];
+        text(svg, { x: x(0) - 10, y: y(a.snn) + 4, 'text-anchor': 'end', class: 'ch-val' }, a.snn.toFixed(3));
+        text(svg, { x: x(0) - 10, y: y(a.tf) + 4, 'text-anchor': 'end', class: 'ch-num' }, a.tf.toFixed(3));
+        text(svg, { x: x(last) + 18, y: y(z.snn) - 5, class: 'ch-val' }, `VOLLEY ${z.snn.toFixed(3)}`);
+        text(svg, { x: x(last) + 18, y: y(z.tf) + 13, class: 'ch-key' }, `Transformer ${z.tf.toFixed(3)}`);
       }
       const cross = svgEl('line', { y1: m.t, y2: m.t + ph, class: 'ch-cross', opacity: 0 }, svg);
-      const hit = svgEl('rect', { x: m.l - 20, y: m.t, width: pw + 40, height: ph, class: 'ch-hit' }, svg);
+      const hit = svgEl('rect', { x: m.l, y: m.t, width: fw, height: ph, class: 'ch-hit' }, svg);
       hit.addEventListener('pointermove', (e) => {
-        const rc = svg.getBoundingClientRect();
-        const i = clamp(Math.round(((e.clientX - rc.left - m.l) / pw) * last), 0, last);
+        const [mx, my] = pointerIn(svg, e);
+        const i = clamp(Math.round(((mx - x(0)) / (x(last) - x(0))) * last), 0, last);
         const r = RELEASES[i];
         cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('opacity', 1);
-        showTip(tip, container, `<b>${r.v} · ${r.adds}</b><div class="tt-row"><span><i></i>Spiking stack</span><span>${r.snn.toFixed(3)}</span></div><div class="tt-row"><span><i class="dash"></i>Transformer</span><span>${r.tf.toFixed(3)}</span></div>`, x(i), e.clientY - rc.top);
+        showTip(tip, container, `<b>${r.v} · ${r.adds}</b><div class="tt-row"><span><i></i>Spiking stack</span><span>${r.snn.toFixed(3)}</span></div><div class="tt-row"><span><i class="dash"></i>Transformer</span><span>${r.tf.toFixed(3)}</span></div>`, x(i), my);
       });
       hit.addEventListener('pointerleave', () => { hideTip(tip); cross.setAttribute('opacity', 0); });
     });
@@ -740,7 +1024,7 @@
       a.streams.forEach((st) => {
         const div = document.createElement('div');
         div.className = 'vo-stream';
-        div.innerHTML = `<div class="vo-stream__head"><span class="vo-stream__name"><span class="vo-stream__label">${st.def.name}</span><small>${st.def.unit} · limit ${st.def.low ? '<' : '>'} ${st.def.limit}</small></span><span class="vo-stream__val"><span class="sv-v">–</span><span class="sv-s">– bits</span></span></div><canvas aria-hidden="true"></canvas>`;
+        div.innerHTML = `<div class="vo-stream__head"><span class="vo-stream__name"><span class="vo-stream__label">${st.def.name}</span><small>${st.def.unit} · limit ${st.def.low ? '<' : '>'} ${st.def.limit}</small></span><span class="vo-stream__val"><span class="sv-v">–</span><span class="sv-s">– bits</span></span></div><div class="vo-stream__plot"><canvas aria-hidden="true"></canvas></div>`;
         streamsEl.appendChild(div);
         st.el = div; st.cv = $('canvas', div); st.vEl = $('.sv-v', div); st.sEl = $('.sv-s', div);
       });
@@ -1043,8 +1327,38 @@
     window.addEventListener('resize', draw);
   }
 
+  /* ------------------------------------------------------------------ booth loop
+     ?kiosk=loop walks the page by itself for an unattended screen: one stop after another, longest at the
+     console, and round again from the top. A touch, a key or the wheel hands the page to the visitor for a
+     minute. Plain ?kiosk leaves the page where it is, as before. */
+  function initBoothLoop() {
+    if (!/[?&#]kiosk=loop/.test(location.href)) return;
+    const stops = [['#top', 12], ['#architecture', 8], ['.vo-arch', 44], ['#streaming', 18], ['.vo-viz-grid', 16], ['#industrial', 16],
+      ['.vo-ind-grid', 12], ['.vo-console', 85], ['#proof', 8], ['.vo-proof-grid', 16], ['#roadmap', 14], ['#pilot', 12]];
+    let at = 0, handed = 0;
+    const next = () => {
+      if (performance.now() < handed) { setTimeout(next, 1000); return; }
+      const [selector, seconds] = stops[at];
+      const el = document.querySelector(selector);
+      if (el) {
+        // a section starts at the top of the screen; a block inside one stops just clear of the bar
+        const bar = $('.cf-nav__bar');
+        const clear = el.matches('section, header, footer') ? 0 : (bar ? bar.getBoundingClientRect().bottom : 0) + 16 * ZOOM;
+        window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - clear), behavior: REDUCED ? 'auto' : 'smooth' });
+      }
+      at = (at + 1) % stops.length;
+      setTimeout(next, seconds * 1000);
+    };
+    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((type) =>
+      window.addEventListener(type, () => { handed = performance.now() + 60000; }, { passive: true }));
+    setTimeout(next, 5000);
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    initBoothScale();
     initNav();
+    initMenu();
+    initDisclosures();
     initHero();
     initVolley();
     initArch();
@@ -1054,5 +1368,6 @@
     initLoop();
     initFleet();
     initConsole();
+    initBoothLoop();
   });
 })();
