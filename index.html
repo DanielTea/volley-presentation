@@ -11,18 +11,22 @@
 <meta property="og:site_name" content="Control-F">
 <meta property="og:title" content="Volley vNN · the streaming spiking network for industrial AI">
 <meta property="og:description" content="Learns per asset, per stream, during inference. Research preview by Control-F at SPS 2026, Nürnberg.">
-<meta property="og:image" content="https://danieltea.github.io/volley-presentation/assets/img/og-image.png">
-<meta property="og:url" content="https://danieltea.github.io/volley-presentation/">
+<meta property="og:image" content="https://danieltremer.com/volley-presentation/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Volley vNN by Control-F: an isometric drawing of eleven spiking levels above a per-asset memory capsule, fed by telemetry and language.">
+<meta property="og:url" content="https://danieltremer.com/volley-presentation/">
+<link rel="canonical" href="https://danieltremer.com/volley-presentation/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/ds/img/logo/cf-favicon.svg" type="image/svg+xml">
-<!-- Control-F design system, vendored from control-f.io/design-system (see README) -->
-<link rel="stylesheet" href="assets/ds/css/tokens.css">
-<link rel="stylesheet" href="assets/ds/css/base.css">
-<link rel="stylesheet" href="assets/ds/css/components.css">
-<link rel="stylesheet" href="assets/ds/css/landing-v2.css">
+<!-- Control-F design system, vendored from control-f.io/design-system (see README). cf.bundle.css is its four
+     sheets (tokens, base, components, landing sections) joined without their comments by tools/build_css.py. -->
+<link rel="preload" href="assets/ds/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/ds/fonts/GeistMono-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/ds/css/cf.bundle.css?v=2">
 <script src="assets/ds/js/cf-nav.js"></script>
 <!-- Volley page -->
-<link rel="stylesheet" href="assets/css/volley.css">
+<link rel="stylesheet" href="assets/css/volley.css?v=2">
 </head>
 <body class="page-wash">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -42,6 +46,9 @@
   <defs>
     <linearGradient id="voLight" x1="0" y1="0" x2="0.72" y2="1">
       <stop offset="0" stop-color="#E1FF00"/><stop offset="0.061" stop-color="#DBFC60"/><stop offset="0.32" stop-color="#C5EBE2"/><stop offset="1" stop-color="#CFCFCF"/>
+    </linearGradient>
+    <linearGradient id="voGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E1FF00"/><stop offset="1" stop-color="#C5EBE2"/>
     </linearGradient>
     <radialGradient id="voBloom">
       <stop offset="0" stop-color="#E1FF00"/><stop offset="0.35" stop-color="#E1FF00" stop-opacity="0.85"/><stop offset="0.6" stop-color="#C5EBE2" stop-opacity="0.55"/><stop offset="1" stop-color="#C5EBE2" stop-opacity="0"/>
@@ -69,10 +76,7 @@
   <!-- ============================================================== HERO -->
   <header class="cf-hero vo-hero" id="top">
     <input class="cf-hero__still-toggle" type="checkbox" id="cf-hero-still">
-    <div class="cf-hero__media">
-      <svg class="vo-hero-art" id="heroArt" viewBox="0 0 900 820" preserveAspectRatio="xMaxYMid meet" aria-hidden="true"></svg>
-    </div>
-    <div class="container">
+    <div class="container vo-hero__grid">
       <div class="cf-hero__body vo-hero__body">
         <p class="t-label vo-hero__eyebrow">Control-F · Research preview · SPS 2026 Nürnberg</p>
         <h1 class="cf-hero__title">Volley <span class="text-foil text-foil--ink">vNN</span>.<br>Never stops learning<br>your machines.</h1>
@@ -82,6 +86,9 @@
           streams as one stream, keeps a memory for every asset, and answers predictive-maintenance questions in
           plain language.
         </p>
+      </div>
+      <div class="vo-hero__art" aria-hidden="true">
+        <svg class="vo-hero-art" id="heroArt" focusable="false"></svg>
       </div>
     </div>
     <div class="cf-hero__action">
@@ -124,7 +131,7 @@
         </div>
         <div class="vo-cell vo-stat">
           <dt class="t-label">Same-size Transformer</dt>
-          <dd><span class="vo-stat__num">1.2 %</span><span class="vo-stat__unit">gap on enwik8: 1.120 vs 1.107 bits/byte</span></dd>
+          <dd><span class="vo-stat__num">1.2%</span><span class="vo-stat__unit">gap on enwik8: 1.120 vs 1.107 bits/byte</span></dd>
         </div>
       </dl>
       <p class="vo-note">Telemetry is the vNN design target. <a href="#proof">How it is measured</a></p>
@@ -145,10 +152,7 @@
           <p>Volley does the same for a factory: many small spiking units, each firing sparsely, that together follow every stream of every asset, without ever stopping.</p>
         </div>
       </div>
-      <svg class="vo-volley" viewBox="0 0 520 124" role="img" aria-label="Four neurons fire in turn. Together their spikes follow every peak of the wave above them.">
-        <path class="vo-volley__wave" d="M0 30 Q 16.25 0 32.5 30 T 65 30 T 97.5 30 T 130 30 T 162.5 30 T 195 30 T 227.5 30 T 260 30 T 292.5 30 T 325 30 T 357.5 30 T 390 30 T 422.5 30 T 455 30 T 487.5 30 T 520 30"/>
-        <g id="volleyRows"></g>
-      </svg>
+      <div class="vo-volley" id="volleyFig" role="img" aria-label="Four neurons fire in turn, each on every fourth peak of the signal above them. Together their spikes follow every peak."></div>
     </div>
   </section>
 
@@ -157,7 +161,7 @@
     <div class="container">
       <div class="cf-section-header">
         <h2 class="cf-section-header__label">01 · Architecture</h2>
-        <span class="cf-section-header__count">Select any part</span>
+        <span class="cf-section-header__count vo-hide-s">Select any part</span>
       </div>
       <div class="vo-head">
         <h3 class="vo-title" id="arch-title">A spike-only stack that reads a stream.</h3>
@@ -177,7 +181,7 @@
       <div class="vo-arch">
         <figure class="vo-arch__figure">
           <div class="vo-arch__scroll">
-          <svg class="vo-arch-svg" id="archSvg" viewBox="0 0 840 580" role="group" aria-label="Volley vNN architecture diagram. Each part can be selected.">
+          <svg class="vo-arch-svg" id="archSvg" viewBox="0 0 864 580" role="group" aria-label="Volley vNN architecture diagram. Each part can be selected.">
             <defs>
               <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M0 0 L10 5 L0 10 z" class="arrowhead"/>
@@ -195,7 +199,7 @@
               <path id="w-pred" class="wire" d="M738 166 V136" marker-end="url(#arrow)"/>
               <path id="w-tape" class="wire" d="M470 350 V400" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
               <path id="w-act" class="wire wire--near" d="M560 350 V372 H717 V400" marker-end="url(#arrow)"/>
-              <path id="w-fast" class="wire wire--faint" d="M808 455 H830 V221 H826" marker-end="url(#arrow)"/>
+              <path id="w-fast" class="wire wire--faint" d="M808 455 H846 V221 H826" marker-end="url(#arrow)"/>
             </g>
 
             <g class="spikes" aria-hidden="true">
@@ -322,16 +326,22 @@
 
         <aside class="vo-arch__panel" id="archPanel" aria-live="polite">
           <p class="vo-panel__head"><span class="t-label">Selected part</span><span class="vo-tag vo-tag--measured" id="panelTag">Measured · v16</span></p>
-          <h3 class="vo-panel__title" id="panelTitle">State read · 8 heads per level</h3>
-          <p id="panelBody">Select a part of the diagram.</p>
-          <dl class="vo-facts" id="panelFacts"></dl>
+          <div class="vo-panel__content" id="panelContent">
+            <h3 class="vo-panel__title" id="panelTitle">State read · 8 heads per level</h3>
+            <p class="vo-panel__body" id="panelBody">Select a part of the diagram.</p>
+            <dl class="vo-facts" id="panelFacts"></dl>
+          </div>
+          <div class="vo-parts">
+            <p class="t-label">All parts</p>
+            <ol class="vo-parts__list" id="panelParts"></ol>
+          </div>
         </aside>
       </div>
 
       <div class="vo-sub">
         <div class="cf-section-header">
           <h3 class="cf-section-header__label">Four memories, four timescales</h3>
-          <span class="cf-section-header__count">From this moment to everything Volley knows</span>
+          <span class="cf-section-header__count vo-hide-s">From this moment to everything Volley knows</span>
         </div>
         <ol class="vo-grid vo-grid--4 vo-timescales">
           <li class="vo-cell"><span class="t-label">01 · Charge</span><i class="vo-rung vo-rung--1-4" aria-hidden="true"></i><p>The cells' membrane state. <strong>This moment.</strong></p></li>
@@ -348,7 +358,7 @@
     <div class="container">
       <div class="cf-section-header">
         <h2 class="cf-section-header__label">02 · Streaming</h2>
-        <span class="cf-section-header__count">Six advantages</span>
+        <span class="cf-section-header__count vo-hide-s">Six advantages</span>
       </div>
       <div class="vo-head">
         <h3 class="vo-title" id="stream-title">Windows forget. Streams remember.</h3>
@@ -402,7 +412,7 @@
         <figure class="vo-fig" id="forgetFigure">
           <div class="cf-section-header">
             <h4 class="cf-section-header__label">How much a moment still counts</h4>
-            <span class="cf-section-header__count">Share per cell · log scales</span>
+            <span class="cf-section-header__count vo-hide-s">Share per cell · log scales</span>
           </div>
           <div class="vo-chart" id="forgetChart" role="img" aria-label="A Transformer gives full weight inside its 2,048-byte window and none beyond it. Volley's weight falls smoothly as a power of the age beyond the window."></div>
           <div class="vo-slider">
@@ -426,7 +436,7 @@
       <div class="vo-sub">
         <div class="cf-section-header">
           <h4 class="cf-section-header__label">Windowed Transformer vs. Volley</h4>
-          <span class="cf-section-header__count">On a stream that never ends</span>
+          <span class="cf-section-header__count vo-hide-s">On a stream that never ends</span>
         </div>
         <div class="cf-table__scroll">
           <table class="cf-table vo-table">
@@ -434,13 +444,13 @@
               <tr><th scope="col"><span class="visually-hidden">Property</span></th><th scope="col">Windowed Transformer</th><th scope="col">Volley streaming SNN</th></tr>
             </thead>
             <tbody>
-              <tr><th scope="row">Input</th><td>Fixed windows, re-read for every prediction</td><td>One unbroken stream per asset, one step per sample</td></tr>
-              <tr><th scope="row">Older than the window</th><td>Gone</td><td>Read up to 4× further than trained, fading by a power law</td></tr>
-              <tr><th scope="row">During inference</th><td>Weights frozen</td><td>Fast synapses learn from every arrival</td></tr>
-              <tr><th scope="row">Pause, resume, failover</th><td>Re-fill the window</td><td>Carry the capsule; identical spikes after a cut</td></tr>
-              <tr><th scope="row">Per-asset adaptation</th><td>Fine-tuning, retrieval or a model per asset</td><td>A capsule per asset and stream, built in</td></tr>
-              <tr><th scope="row">Arithmetic</th><td>Floating-point multiply-accumulate</td><td>Whole spikes, 8-bit synapses</td></tr>
-              <tr><th scope="row">Anomaly signal</th><td>Bolted on</td><td>Native: the surprise of every prediction</td></tr>
+              <tr><th scope="row">Input</th><td data-label="Transformer">Fixed windows, re-read for every prediction</td><td data-label="Volley">One unbroken stream per asset, one step per sample</td></tr>
+              <tr><th scope="row">Older than the window</th><td data-label="Transformer">Gone</td><td data-label="Volley">Read up to 4× further than trained, fading by a power law</td></tr>
+              <tr><th scope="row">During inference</th><td data-label="Transformer">Weights frozen</td><td data-label="Volley">Fast synapses learn from every arrival</td></tr>
+              <tr><th scope="row">Pause, resume, failover</th><td data-label="Transformer">Re-fill the window</td><td data-label="Volley">Carry the capsule; identical spikes after a cut</td></tr>
+              <tr><th scope="row">Per-asset adaptation</th><td data-label="Transformer">Fine-tuning, retrieval or a model per asset</td><td data-label="Volley">A capsule per asset and stream, built in</td></tr>
+              <tr><th scope="row">Arithmetic</th><td data-label="Transformer">Floating-point multiply-accumulate</td><td data-label="Volley">Whole spikes, 8-bit synapses</td></tr>
+              <tr><th scope="row">Anomaly signal</th><td data-label="Transformer">Bolted on</td><td data-label="Volley">Native: the surprise of every prediction</td></tr>
             </tbody>
           </table>
         </div>
@@ -489,7 +499,7 @@
         <div class="vo-asks">
           <div class="cf-section-header">
             <h4 class="cf-section-header__label">Questions an operator can ask</h4>
-            <span class="cf-section-header__count">Plain language</span>
+            <span class="cf-section-header__count vo-hide-s">Plain language</span>
           </div>
           <ul class="vo-asks__list">
             <li>Why is pump P-104 flagged?</li>
@@ -499,7 +509,7 @@
             <li>What changed after Tuesday's maintenance?</li>
             <li>Which assets on line 2 are least like their own normal?</li>
           </ul>
-          <p class="t-label vo-usecases">Predictive maintenance · Anomaly detection · Root-cause Q&amp;A · Shift handover · Quality drift · Edge deployment</p>
+          <p class="t-label vo-usecases"><span>Predictive maintenance</span><span>Anomaly detection</span><span>Root-cause Q&amp;A</span><span>Shift handover</span><span>Quality drift</span><span>Edge deployment</span></p>
         </div>
       </div>
     </div>
@@ -527,11 +537,20 @@
       <div class="vo-console">
         <div class="vo-console__top">
           <div class="vo-tabs" role="tablist" aria-label="Assets" id="assetTabs"></div>
-          <p class="t-label vo-console__clock">Plant time <span id="simClock">--</span></p>
+          <div class="vo-console__meta">
+            <label class="vo-toggle"><input type="checkbox" id="autoplay"><span class="t-label">Booth autoplay</span></label>
+            <p class="t-label vo-console__clock">Plant time <span id="simClock">--</span></p>
+          </div>
         </div>
 
         <div class="vo-console__body">
-          <div class="vo-streams" id="streams"></div>
+          <div class="vo-main">
+            <div class="vo-streams" id="streams"></div>
+            <div class="vo-log">
+              <div class="vo-log__head"><span class="t-label">Event log</span><span class="t-label vo-muted">Surprise events, per stream</span></div>
+              <ol class="vo-log__list" id="eventLog"></ol>
+            </div>
+          </div>
 
           <div class="vo-side">
             <div class="vo-status">
@@ -549,12 +568,11 @@
             </div>
 
             <div class="vo-faults">
-              <p class="t-label">Inject a fault into <span id="faultAsset">P-104</span></p>
-              <div class="vo-faults__btns" id="faultBtns"></div>
               <div class="vo-faults__row">
-                <button class="cf-btn cf-btn--ghost" id="resetBtn">Repair &amp; reset</button>
-                <label class="vo-toggle"><input type="checkbox" id="autoplay"><span class="t-label">Booth autoplay</span></label>
+                <p class="t-label">Inject a fault into <span id="faultAsset">P-104</span></p>
+                <button class="cf-btn cf-btn--ghost vo-btn-xs" id="resetBtn" type="button">Repair &amp; reset</button>
               </div>
+              <div class="vo-faults__btns" id="faultBtns"></div>
             </div>
 
             <div class="vo-chat" aria-label="Ask the asset">
@@ -575,11 +593,6 @@
               </form>
             </div>
           </div>
-        </div>
-
-        <div class="vo-log">
-          <div class="vo-log__head"><span class="t-label">Event log</span><span class="t-label vo-muted">Surprise events, per stream</span></div>
-          <ol class="vo-log__list" id="eventLog"></ol>
         </div>
       </div>
     </div>
@@ -614,12 +627,12 @@
               <table class="cf-table">
                 <thead><tr><th scope="col">Release</th><th scope="col" class="cf-table__num">Spiking stack</th><th scope="col" class="cf-table__num">Transformer</th><th scope="col">Adds</th></tr></thead>
                 <tbody>
-                  <tr><td>v11</td><td class="cf-table__num">1.645</td><td class="cf-table__num">1.704</td><td>Fast synapses written by error spikes</td></tr>
-                  <tr><td>v12</td><td class="cf-table__num">1.414</td><td class="cf-table__num">1.182</td><td>Read heads on a tape of the stream</td></tr>
-                  <tr><td>v13</td><td class="cf-table__num">1.262</td><td class="cf-table__num">1.182</td><td>State reads and race cells</td></tr>
-                  <tr><td>v14</td><td class="cf-table__num">1.244</td><td class="cf-table__num">1.182</td><td>Read clocks and the address rate</td></tr>
-                  <tr><td>v15</td><td class="cf-table__num">1.141</td><td class="cf-table__num">1.144</td><td>A stack that reads a stream</td></tr>
-                  <tr><td>v16</td><td class="cf-table__num">1.120</td><td class="cf-table__num">1.107</td><td>Long streams, power-law forgetting</td></tr>
+                  <tr><td>v11</td><td class="cf-table__num" data-label="Spiking stack">1.645</td><td class="cf-table__num" data-label="Transformer">1.704</td><td>Fast synapses written by error spikes</td></tr>
+                  <tr><td>v12</td><td class="cf-table__num" data-label="Spiking stack">1.414</td><td class="cf-table__num" data-label="Transformer">1.182</td><td>Read heads on a tape of the stream</td></tr>
+                  <tr><td>v13</td><td class="cf-table__num" data-label="Spiking stack">1.262</td><td class="cf-table__num" data-label="Transformer">1.182</td><td>State reads and race cells</td></tr>
+                  <tr><td>v14</td><td class="cf-table__num" data-label="Spiking stack">1.244</td><td class="cf-table__num" data-label="Transformer">1.182</td><td>Read clocks and the address rate</td></tr>
+                  <tr><td>v15</td><td class="cf-table__num" data-label="Spiking stack">1.141</td><td class="cf-table__num" data-label="Transformer">1.144</td><td>A stack that reads a stream</td></tr>
+                  <tr><td>v16</td><td class="cf-table__num" data-label="Spiking stack">1.120</td><td class="cf-table__num" data-label="Transformer">1.107</td><td>Long streams, power-law forgetting</td></tr>
                 </tbody>
               </table>
             </div></div>
@@ -651,7 +664,12 @@
           <p class="v2-spec-col__desc">A native integer decoder and an energy audit on hardware. Today the spike races are computed in closed form on GPUs and CPUs.</p>
         </div>
       </div>
-      <p class="vo-note"><a href="https://github.com/DanielTea/transformer-snn" rel="noopener">Research repository, model cards and every training arm</a></p>
+      <p class="vo-more">
+        <a class="cf-btn cf-btn--ghost" href="https://github.com/DanielTea/transformer-snn" rel="noopener">
+          Research repository, model cards and every training arm
+          <svg class="cf-arrow" aria-hidden="true"><use href="#cf-arrow"></use></svg>
+        </a>
+      </p>
     </div>
   </section>
 
@@ -760,6 +778,6 @@
   </div>
 </footer>
 
-<script src="assets/js/main.js" defer></script>
+<script src="assets/js/main.js?v=2" defer></script>
 </body>
 </html>
